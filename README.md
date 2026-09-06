@@ -1,64 +1,92 @@
-# Aetheria 2.0 — Next-Gen 3D Open-World Survival Game
+# Aetheria 3.0 — The Modular S-Tier 3D Open-World RPG
 
-A feature-packed, self-contained 3D open-world survival game built with Three.js and Web Audio API.
+A next-generation, high-performance 3D open-world survival RPG built with Three.js, Vite, and the Web Audio / Speech API.
 
-🎮 **Live Demo on Vercel**: [https://aetheria-game-eta.vercel.app](https://aetheria-game-eta.vercel.app)
-
----
-
-## What's New in 2.0 (Extreme Next-Level Improvements)
-
-### 👑 The Ancient Titan Boss Encounter
-- **Summit Altar**: Venture up to the highest mountain summit to discover the ancient rune stones and summoning dais.
-- **Boss Mechanics**: Interact (`E`) to awaken **The Ancient Titan** (950 HP). Battle against seismic ground stomps, homing boulder throws, and energy shockwaves.
-- **Legendary Reward**: Defeat the Titan to claim the mythical **Titan Core**, huge XP, and sovereign status.
-
-### ⚔️ Advanced Combat & Arsenal
-- **Plasma Blaster with Mega Charge**: Hold LMB to accumulate unstable plasma energy, then release to launch a massive AOE shockwave orb that obliterates enemies.
-- **Energy Katana & Parry Shield**: Fluid 3-hit melee combo with glowing blade trails and screen impact shake. Hold RMB to raise a defensive parry shield that deflects attacks and negates damage.
-- **Anti-Grav Thruster Jetpack**: Press `Space` while in mid-air to ignite rocket thrusters for vertical exploration.
-- **Juicy Floating Combat Numbers**: Bouncing RPG-style damage numbers with critical hits and color-coded impact feedback.
-- **Autonomous Cyber-Drone**: A companion drone hovers alongside you, provides flashlight coverage at night, and fires interceptor laser darts at approaching enemies.
-
-### 🧱 Functional Building & Deployables
-- Press `B` or `RMB` while holding the Building Kit (`4`) to cycle between:
-  1. **Wood Block**: Standard fortification.
-  2. **Stone Brick**: Sturdy defensive masonry.
-  3. **Crystal Forcefield**: Translucent glowing energy barrier.
-  4. **Campfire**: Cooks raw venison into high-potency **Roasted Steaks** (`E`), emits warm light, and deters nocturnal beasts from entering its perimeter.
-  5. **Storage Crate**: Interact (`E`) to deposit or withdraw resources with 1-click inventory transfer.
-  6. **Crystal Defense Turret**: Automated sentinel that detects and zaps hostile monsters within an 18m radius.
-
-### 🎶 Dynamic Synthesizer Music & Soundscape
-- Fully procedural Web Audio synthesizer that generates evolving ambient chord progressions:
-  - **Daylight**: Serene, major 7th ethereal pads.
-  - **Night**: Dark, mysterious minor tension chords.
-  - **Combat / Boss**: Fast-paced, driving battle pulse.
-- Surface-aware footsteps (grass rustle, stone clack, wood thud, water splash).
-
-### 🗺️ Full Topographic Island Map & Navigational Compass
-- **Holographic Compass**: 360-degree heading tape at the top of the screen showing cardinal directions.
-- **Full World Map (`M`)**: High-resolution topographic survey of the archipelago displaying real-time player position, the Summit Altar, placed campfires, and chests.
+🎮 **Live Production on Vercel**: [https://aetheria-game-eta.vercel.app](https://aetheria-game-eta.vercel.app)
 
 ---
 
-## Controls
+## 🌟 What Makes Aetheria 3.0 an S-Tier Breakthrough
+
+### 1. 👤 Complete Procedural Characters with Anatomical Faces
+- **Facial Geometry**: Procedurally sculpted skull, tapered jawline, cheekbones, defined 3D nose with bridge and nostrils, defined lips/mouth with oral cavity, and articulated brow.
+- **Expressive Eyes & Gaze Tracking**: Twin ocular spheres with white sclera, limbal rings, radial iris striations (customized per character), black pupils, and cornea specular reflection.
+- **Natural Blinking**: Stochastic eye blinking cycle (every 2.5–5 seconds) with realistic fast-close and smooth-open eyelid curves.
+- **Dynamic Lip-Sync**: Articulated jaw and mouth shapes (phonemes) that animate in real time synchronized with spoken character voice lines!
+- **Distinct Stylized Personas & Silhouettes**:
+  - **The Explorer (Player)**: Sleek environmental explorer suit, gauntlet forearm emitter, windswept dark hair, and twin-thruster anti-grav jetpack.
+  - **Lyra, The Chrono-Cartographer**: Scholarly explorer robes, twin glowing cyan chronomantic goggles on her forehead, and a floating orbiting Astrolabe drone.
+  - **Commander Thorne, The Iron Vanguard**: Heavy battle-scarred plate armor, reinforced pauldron, and a red tactical cybernetic ocular implant.
+  - **Kaelen, The Shadow Alchemist**: Deep draped cowl casting soft atmospheric shadows over his face, with an alchemical potion bandolier.
+  - **The Ancient Titan (World Boss)**: Massive colossal stone titan with glowing magma core, burning runic eyes, and earth-shattering attacks.
+
+### 2. 🎭 Full In-Browser Voiced Dialogue Trees
+- Every NPC possesses a rich backstory, distinct speaking personality, and **full voice acting** synthesized in real-time via the browser's Web Speech API and Web Audio formant shaping:
+  - **Lyra**: Energetic, inquisitive cadence, guiding the player through island anomalies and ancient monoliths.
+  - **Commander Thorne**: Low, gritty, authoritative battle veteran cadence, offering combat tips and bounties.
+  - **Kaelen**: Whispering, resonant, melodic cadence, trading crystal reagents and revealing the Titan's vulnerabilities.
+- Interactive RPG dialogue modal with character portraits, typewriter text, and branching narrative choices.
+
+### 3. 🤸 Fluid Skeletal Animation & Multi-Stage Combat
+- Full multi-joint humanoid bone hierarchy (Pelvis, Spine, Chest, Neck, Head, Clavicles, Shoulders, Elbows, Wrists, Hands, Hips, Knees, Ankles, Feet).
+- Smooth state blending:
+  - **Idle**: Rhythmic breathing cycle and subtle weight shifts.
+  - **Walk / Run / Sprint**: Dynamic bipedal stride with pelvic roll, forward athletic lean, and wind trail particle effects.
+  - **Jump**: Takeoff anticipation crouch, airborne hang-time, and compression landing shock.
+  - **Anti-Grav Jetpack**: Hold <kbd>Space</kbd> while airborne to fire vertical rocket thrusters with cyan particle trails.
+  - **3-Hit Katana Combo**: Horizon Slash -> Rising Cross Cut -> 360 Cyclone Whirlwind Finisher with glowing ribbon trails and screen tremor.
+  - **Parry Shield**: Hold <kbd>RMB</kbd> to raise an energy deflection barrier that stuns enemies and negates incoming damage.
+  - **Dual-Mode Plasma Blaster**: Click for rapid energy bolts; **hold <kbd>LMB</kbd>** to charge an unstable Singularity Orb that causes a devastating explosive shockwave.
+  - **3D Bouncing Damage Numbers**: Pop-up RPG combat indicators with critical hit multipliers and color coding.
+
+### 4. 🌍 Vast Multi-Biome Terrain & Advanced Shaders
+- Multi-octave Simplex / Perlin fBm procedural island with radial ocean falloff and the central mountain peak.
+- Custom terrain slope splatting shader blending golden beach sand, rolling lush grass, sheer cliff rock, and mountain snow.
+- Gerstner wave ocean simulation with animated swells, shoreline foam, and specular sun glints.
+- Dynamic celestial dome with day/night cycle, Rayleigh/Mie atmospheric scattering, volumetric cloud decks, and starlit nights.
+
+### 5. 🧱 Deployable Base Fortifications
+- Snapped voxel construction: Fortified Wood, Obsidian Masonry, Crystal Forcefield.
+- **Cooking Campfire**: Wards off nocturnal predators, emits warm point light, and cooks raw meat into **Roasted Steaks** (<kbd>E</kbd>).
+- **Storage Crate**: Persistent resource storage.
+- **Crystal Defense Turret**: Automated perimeter sentinel with 360° target tracking and laser bolts.
+
+### 6. 🎶 Dynamic Procedural Soundtrack
+- Generative Web Audio synthesizer:
+  - **Day**: Tranquil, ethereal major 7th chord progressions.
+  - **Night**: Atmospheric, mysterious minor tension chords.
+  - **Boss Encounter**: Driving, urgent battle pulse.
+
+---
+
+## 🕹️ Controls Guide
 
 | Key | Action |
 |---|---|
-| <kbd>W A S D</kbd> | Move |
+| <kbd>W A S D</kbd> | Movement |
 | <kbd>Shift</kbd> | Sprint (consumes stamina) |
-| <kbd>Space</kbd> | Jump / Swim Up |
-| <kbd>Space</kbd> *(in air)* | **Anti-Grav Thruster Boost** |
-| <kbd>Ctrl</kbd> | Stealth Crouch |
-| <kbd>Mouse</kbd> | Look / Aim |
-| <kbd>LMB</kbd> | Attack / **Hold to Charge Blaster** |
-| <kbd>RMB</kbd> | **Parry Shield** (Katana) / Cycle Build Type / Aim |
-| <kbd>E</kbd> | **Interact** (Summit Altar, Cook at Campfire, Open Chest) |
-| <kbd>B</kbd> | Cycle Build Material |
-| <kbd>M</kbd> | **Toggle Full Island Map** |
+| <kbd>Space</kbd> | Jump / Swim Upward |
+| <kbd>Space</kbd> *(hold in air)* | **Anti-Grav Thruster Jetpack Boost** |
+| <kbd>LMB</kbd> | Attack / **Hold to Charge Mega-Blaster** |
+| <kbd>RMB</kbd> | **Parry Shield** (Katana) / Deflect |
+| <kbd>E</kbd> | **Interact** (Talk to NPCs, Awaken Summit Titan, Cook at Campfire) |
+| <kbd>Tab</kbd> | **Tech Forge Crafting Menu** |
+| <kbd>M</kbd> | **Toggle Full Topographic Island Map** |
+| <kbd>V</kbd> | Toggle 1st / 3rd Person Camera View |
 | <kbd>1 - 6</kbd> / <kbd>Scroll</kbd> | Select Hotbar Item |
-| <kbd>Tab</kbd> | Open Tech Forge Crafting |
-| <kbd>V</kbd> | Toggle 1st / 3rd Person Camera |
-| <kbd>F5</kbd> / <kbd>F9</kbd> | Quick Save / Quick Load |
-| <kbd>Esc</kbd> | Pause Menu & Settings |
+
+---
+
+## 🛠️ Development & Architecture
+
+Built with modern ES modules and Vite:
+```bash
+# Install dependencies
+npm install
+
+# Start local HMR development server
+npm run dev
+
+# Build production bundle
+npm run build
+```

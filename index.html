@@ -1,2400 +1,402 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AETHERIA 2.0 — 3D Open World Survival</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #050811; font-family: 'Segoe UI', -apple-system, Roboto, sans-serif; color: #f0f4fc; user-select: none; }
-  canvas#game { display: block; width: 100%; height: 100%; }
-  #ui { position: fixed; inset: 0; pointer-events: none; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AETHERIA 3.0 — S-Tier 3D Open World RPG</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #050811; font-family: 'Segoe UI', -apple-system, Roboto, sans-serif; color: #f0f4fc; user-select: none; }
+    canvas#game-canvas { display: block; width: 100%; height: 100%; }
 
-  /* Glassmorphism Panels */
-  .panel {
-    background: rgba(10, 16, 28, 0.76);
-    border: 1px solid rgba(120, 190, 255, 0.28);
-    border-radius: 12px;
-    padding: 12px 14px;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  }
+    #ui-overlay { position: fixed; inset: 0; pointer-events: none; }
 
-  /* Top Left HUD */
-  #topleft { position: absolute; left: 18px; top: 18px; width: 260px; }
-  .bar-wrap { margin-bottom: 7px; }
-  .bar { height: 10px; background: rgba(0,0,0,0.6); border-radius: 5px; overflow: hidden; margin-top: 3px; border: 1px solid rgba(255,255,255,0.1); position: relative; }
-  .bar > div { height: 100%; width: 100%; transition: width 0.15s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 4px; }
-  #hpbar > div { background: linear-gradient(90deg, #e52d27, #ff5e62); box-shadow: 0 0 10px rgba(255, 94, 98, 0.5); }
-  #stbar > div { background: linear-gradient(90deg, #00b4db, #0083b0); box-shadow: 0 0 10px rgba(0, 180, 219, 0.5); }
-  #hubar > div { background: linear-gradient(90deg, #f7971e, #ffd200); box-shadow: 0 0 10px rgba(255, 210, 0, 0.5); }
-  #boostbar > div { background: linear-gradient(90deg, #10b981, #34d399); box-shadow: 0 0 10px rgba(52, 211, 153, 0.5); }
-  #xpbar { height: 5px; margin-top: 2px; }
-  #xpbar > div { background: linear-gradient(90deg, #8a2387, #e94057, #f27121); }
-  .lbl { font-size: 10.5px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; opacity: 0.85; display: flex; justify-content: space-between; }
+    /* Glassmorphism Panels */
+    .glass-panel {
+      background: rgba(10, 16, 28, 0.78);
+      border: 1px solid rgba(120, 190, 255, 0.28);
+      border-radius: 12px;
+      padding: 12px 16px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      pointer-events: auto;
+    }
 
-  /* Top Center Compass */
-  #compass-wrap {
-    position: absolute; left: 50%; top: 14px; transform: translateX(-50%);
-    width: 380px; height: 32px; border-radius: 16px; overflow: hidden;
-    background: rgba(10, 16, 28, 0.65); border: 1px solid rgba(120, 190, 255, 0.3);
-    backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center;
-  }
-  #compass-tape {
-    display: flex; position: absolute; white-space: nowrap; font-size: 11px; font-weight: 700;
-    letter-spacing: 2px; color: #a5d8ff; transition: transform 0.05s linear;
-  }
-  #compass-needle { position: absolute; top: 0; bottom: 0; width: 2px; background: #ff4757; box-shadow: 0 0 8px #ff4757; z-index: 2; }
+    /* Top Holographic Compass */
+    #compass-container {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 420px;
+      height: 38px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 229, 255, 0.35);
+      border-radius: 8px;
+      background: rgba(6, 12, 22, 0.65);
+      backdrop-filter: blur(6px);
+    }
+    #compass-tape {
+      display: flex;
+      width: 1600px;
+      height: 100%;
+      align-items: center;
+      justify-content: space-around;
+      font-size: 13px;
+      font-weight: 700;
+      color: #7fd0ff;
+      letter-spacing: 2px;
+      transition: transform 0.05s linear;
+    }
+    #compass-pointer {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 100%;
+      background: #00ffff;
+      box-shadow: 0 0 8px #00ffff;
+    }
 
-  /* Boss Health Bar Container */
-  #boss-hud {
-    position: absolute; left: 50%; top: 54px; transform: translateX(-50%);
-    width: 480px; display: none; text-align: center;
-  }
-  #boss-name { font-size: 13px; font-weight: 800; letter-spacing: 3px; color: #ff6b81; text-transform: uppercase; margin-bottom: 4px; text-shadow: 0 0 12px rgba(255,107,129,0.8); }
-  #boss-bar { height: 14px; background: rgba(0,0,0,0.8); border: 2px solid #ff4757; border-radius: 7px; overflow: hidden; box-shadow: 0 0 20px rgba(255,71,87,0.4); }
-  #boss-bar-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff4757, #ff6b81, #ffa502); transition: width 0.2s; }
+    /* Vitals Status Bars */
+    #vitals {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .bar-track {
+      flex: 1;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .bar-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 6px;
+      transition: width 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+    #hp-bar { background: linear-gradient(90deg, #ff2a4b, #ff5577); box-shadow: 0 0 10px rgba(255, 42, 75, 0.5); }
+    #sta-bar { background: linear-gradient(90deg, #00d26a, #20e386); box-shadow: 0 0 10px rgba(0, 210, 106, 0.5); }
+    #hun-bar { background: linear-gradient(90deg, #ff9900, #ffbb33); box-shadow: 0 0 10px rgba(255, 153, 0, 0.5); }
+    #xp-bar { background: linear-gradient(90deg, #00e5ff, #80f0ff); box-shadow: 0 0 10px rgba(0, 229, 255, 0.5); }
 
-  /* Top Right Status */
-  #topright { position: absolute; right: 18px; top: 18px; text-align: right; font-size: 12.5px; line-height: 1.6; }
-  #topright b { font-size: 19px; color: #7fd0ff; font-weight: 700; }
-  .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.1); margin-left: 4px; }
+    /* Boss Encounter Card */
+    #boss-card {
+      display: none;
+      position: absolute;
+      top: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 480px;
+      text-align: center;
+    }
+    .boss-name { font-size: 16px; font-weight: 800; letter-spacing: 2px; color: #ff4422; text-shadow: 0 0 12px rgba(255, 68, 34, 0.8); margin-bottom: 6px; }
+    .boss-track { height: 14px; background: rgba(0, 0, 0, 0.6); border-radius: 7px; overflow: hidden; border: 1px solid rgba(255, 68, 34, 0.5); }
+    #boss-hp-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #cc1100, #ff4422); box-shadow: 0 0 16px rgba(255, 68, 34, 0.8); }
 
-  /* Quests */
-  #quest { position: absolute; left: 18px; top: 220px; width: 260px; font-size: 12.5px; }
-  #quest h4 { font-size: 11px; letter-spacing: 2px; color: #9fd3ff; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+    /* Crosshair & Charge Ring */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      height: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    #charge-reticle {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 42px;
+      height: 42px;
+      margin-top: -21px;
+      margin-left: -21px;
+      border: 3px solid #00ffff;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #00ffff;
+      pointer-events: none;
+      transition: transform 0.05s linear;
+    }
 
-  /* Crosshair with Charge Circle */
-  #crosshair-container { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; }
-  #crosshair { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; transform: translate(-50%,-50%); }
-  #crosshair::before, #crosshair::after { content:''; position:absolute; background:#fff; box-shadow:0 0 4px rgba(0,0,0,0.8); }
-  #crosshair::before { left:6px; top:0; width:2px; height:14px; }
-  #crosshair::after { top:6px; left:0; width:14px; height:2px; }
-  #charge-ring {
-    position: absolute; inset: 0; border: 2px solid transparent; border-top-color: #38ef7d; border-radius: 50%;
-    transform: rotate(0deg); opacity: 0; transition: opacity 0.15s;
-  }
+    /* Hotbar */
+    #hotbar {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+    }
+    .hotbar-slot {
+      width: 54px;
+      height: 54px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      background: rgba(14, 22, 38, 0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      position: relative;
+      backdrop-filter: blur(8px);
+      transition: all 0.15s ease;
+    }
+    .hotbar-slot.active {
+      border-color: #00e5ff;
+      background: rgba(0, 229, 255, 0.22);
+      box-shadow: 0 0 14px rgba(0, 229, 255, 0.6);
+      transform: translateY(-4px);
+    }
+    .hotbar-num {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      font-size: 10px;
+      color: #7fd0ff;
+      font-weight: 700;
+    }
 
-  /* Interaction Prompt */
-  #hint {
-    position: absolute; left: 50%; top: 57%; transform: translateX(-50%); font-size: 13.5px; font-weight: 600;
-    background: rgba(10, 16, 28, 0.85); border: 1px solid rgba(120, 190, 255, 0.4);
-    padding: 6px 14px; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    letter-spacing: 0.5px;
-  }
+    /* Dialogue Modal */
+    #dialogue-modal {
+      display: none;
+      position: absolute;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 640px;
+      max-width: 90vw;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    #dialogue-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 12px;
+      border: 2px solid #00e5ff;
+      background: #111a2c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      box-shadow: 0 0 16px rgba(0, 229, 255, 0.3);
+      flex-shrink: 0;
+    }
+    #dialogue-content { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    #dialogue-name { font-size: 18px; font-weight: 800; color: #00e5ff; }
+    #dialogue-title { font-size: 12px; color: #8faecf; }
+    #dialogue-text { font-size: 15px; line-height: 1.5; color: #eaf0fa; margin-top: 4px; min-height: 48px; }
+    #dialogue-choices { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+    .dialogue-btn {
+      background: rgba(22, 34, 58, 0.85);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      color: #eaf0fa;
+      border-radius: 6px;
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .dialogue-btn:hover { background: rgba(0, 229, 255, 0.25); border-color: #00e5ff; transform: translateX(4px); }
+    .dialogue-btn.close-btn { color: #ff8888; border-color: rgba(255, 100, 100, 0.4); }
 
-  /* Hotbar */
-  #hotbar-wrap {
-    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-  }
-  #build-mode-indicator {
-    font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
-    background: rgba(10, 16, 28, 0.8); border: 1px solid rgba(127,208,255,0.4);
-    padding: 3px 10px; border-radius: 12px; color: #ffd06b; display: none;
-  }
-  #hotbar { display: flex; gap: 8px; }
-  .slot {
-    width: 64px; height: 64px; background: rgba(10, 16, 28, 0.78);
-    border: 2px solid rgba(255,255,255,0.18); border-radius: 10px;
-    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    font-size: 11px; text-align: center; transition: transform 0.15s, border-color 0.15s;
-  }
-  .slot.active {
-    border-color: #7fd0ff; box-shadow: 0 0 16px rgba(127,208,255,0.7);
-    transform: translateY(-4px); background: rgba(20, 32, 54, 0.9);
-  }
-  .slot .k { position: absolute; left: 5px; top: 3px; font-size: 10px; opacity: 0.65; font-weight: 700; }
-  .slot .c { position: absolute; right: 5px; bottom: 3px; font-size: 11px; font-weight: 700; color: #ffd06b; }
-  .slot .ico { font-size: 24px; margin-bottom: 2px; }
+    /* Topographic Map Overlay */
+    #map-modal {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 6, 12, 0.88);
+      backdrop-filter: blur(12px);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #map-canvas { border: 2px solid #00e5ff; border-radius: 12px; box-shadow: 0 0 32px rgba(0, 229, 255, 0.3); }
 
-  /* Minimap */
-  #minimap-wrap {
-    position: absolute; right: 18px; bottom: 18px; width: 176px; height: 176px;
-    border-radius: 50%; border: 3px solid rgba(120,180,255,0.45);
-    background: #000; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-  }
-  canvas#minimap { width: 100%; height: 100%; display: block; }
+    /* Crafting Modal */
+    #crafting-modal {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 6, 12, 0.85);
+      backdrop-filter: blur(12px);
+      align-items: center;
+      justify-content: center;
+    }
+    .crafting-panel { width: 560px; max-height: 80vh; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+    .recipe-card {
+      background: rgba(18, 28, 48, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .recipe-header { display: flex; justify-content: space-between; align-items: center; }
+    .recipe-name { font-weight: 700; color: #7fd0ff; }
+    .recipe-category { font-size: 10px; color: #ffaa00; background: rgba(255, 170, 0, 0.15); padding: 2px 6px; border-radius: 4px; }
+    .recipe-desc { font-size: 13px; color: #b0c4de; }
+    .recipe-cost { font-size: 12px; }
+    .recipe-cost.affordable { color: #20e386; }
+    .recipe-cost.unaffordable { color: #ff5577; }
+    .craft-btn {
+      margin-top: 6px;
+      background: #00b0ff;
+      border: none;
+      color: #030712;
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .craft-btn.disabled { background: #334155; color: #64748b; cursor: not-allowed; }
 
-  /* Notification Log */
-  #log {
-    position: absolute; left: 18px; bottom: 22px; width: 340px; font-size: 13px;
-    display: flex; flex-direction: column-reverse; gap: 4px; pointer-events: none;
-  }
-  #log div {
-    background: rgba(10, 16, 28, 0.82); padding: 5px 10px; border-radius: 6px;
-    border-left: 3px solid #7fd0ff; animation: fadein .25s ease-out;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3); font-weight: 500;
-  }
-  @keyframes fadein { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
-
-  /* Overlays */
-  #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(255,0,0,0) 45%, rgba(220,0,0,0.75) 100%); opacity: 0; transition: opacity .1s; pointer-events:none; }
-  #shield-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0,180,255,0) 55%, rgba(0,180,255,0.45) 100%); opacity: 0; transition: opacity .15s; pointer-events:none; }
-  #water { position: absolute; inset: 0; background: rgba(16, 70, 140, 0.4); opacity: 0; pointer-events:none; }
-  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events:none; }
-  #levelup {
-    position: absolute; left: 50%; top: 28%; transform: translateX(-50%);
-    font-size: 38px; font-weight: 900; color: #c77dff; text-shadow: 0 0 25px #9b5de5, 0 0 50px #8a2387;
-    opacity: 0; transition: opacity .3s, transform .3s; letter-spacing: 5px; text-align: center; pointer-events:none;
-  }
-
-  /* Modals */
-  .modal-screen {
-    position: absolute; inset: 0; background: rgba(5, 8, 16, 0.85);
-    display: none; align-items: center; justify-content: center; pointer-events: auto;
-    backdrop-filter: blur(8px); z-index: 50;
-  }
-  .modal-box { width: 560px; max-width: 92vw; max-height: 90vh; overflow-y: auto; text-align: center; padding: 28px; }
-  .modal-box h1 { font-size: 42px; letter-spacing: 6px; background: linear-gradient(90deg, #7fd0ff, #c77dff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-
-  button {
-    background: linear-gradient(180deg, #2a6fbf, #1d4f8c); color: #fff;
-    border: 1px solid rgba(255,255,255,0.25); padding: 10px 18px; margin: 4px;
-    border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; pointer-events: auto;
-    transition: all 0.15s;
-  }
-  button:hover { filter: brightness(1.2); transform: translateY(-1px); }
-  button:active { transform: translateY(1px); }
-  button:disabled { opacity: .4; cursor: not-allowed; transform: none; filter: grayscale(0.8); }
-
-  /* Crafting Modal */
-  #craft { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 580px; max-width: 95vw; display: none; pointer-events: auto; z-index: 40; }
-  #craft h2 { margin-bottom: 8px; letter-spacing: 2px; color: #c77dff; }
-  .craft-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
-  .craft-tab { padding: 6px 14px; font-size: 12px; background: rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer; }
-  .craft-tab.active { background: #2a6fbf; font-weight: 700; }
-  .recipe { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 13px; text-align: left; }
-  .recipe .cost { opacity: .75; font-size: 12px; }
-  #inv { display: flex; gap: 14px; font-size: 13px; margin: 6px 0 14px; flex-wrap: wrap; justify-content: center; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; }
-
-  /* Chest Storage Modal */
-  #chestModal { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 500px; max-width: 95vw; display: none; pointer-events: auto; z-index: 40; }
-  .chest-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 15px 0; }
-  .chest-item { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; cursor: pointer; text-align: center; }
-  .chest-item:hover { background: rgba(120,190,255,0.2); border-color: #7fd0ff; }
-
-  /* World Map Overlay (M key) */
-  #worldMapModal { position: absolute; inset: 0; background: rgba(5,8,16,0.92); display: none; align-items: center; justify-content: center; flex-direction: column; pointer-events: auto; z-index: 45; }
-  #worldMapCanvas { border: 3px solid rgba(120, 190, 255, 0.5); border-radius: 12px; box-shadow: 0 0 35px rgba(0,180,255,0.25); }
-
-  /* Controls list */
-  .controls { text-align: left; font-size: 12px; columns: 2; margin-top: 18px; opacity: .9; line-height: 1.8; }
-  .controls kbd { background: #1a2538; border: 1px solid #334e75; border-radius: 4px; padding: 1px 6px; font-size: 11px; color: #a5d8ff; }
-
-  #death { position: absolute; inset: 0; background: rgba(50,0,0,0.82); display: none; align-items: center; justify-content: center; flex-direction: column; font-size: 52px; font-weight: 900; letter-spacing: 8px; text-shadow: 0 0 30px #ff0000; z-index: 60; }
-  #death small { font-size: 17px; letter-spacing: 2px; opacity: .85; margin-top: 12px; font-weight: 400; text-shadow: none; }
-</style>
+    /* Key Help Guide */
+    #help-guide {
+      position: absolute;
+      top: 14px;
+      right: 20px;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #94a3b8;
+    }
+    #help-guide kbd {
+      background: rgba(255, 255, 255, 0.15);
+      color: #00ffff;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: inherit;
+    }
+  </style>
 </head>
 <body>
-<canvas id="game"></canvas>
 
-<div id="ui">
-  <div id="flash"></div>
-  <div id="vignette"></div>
-  <div id="shield-vignette"></div>
-  <div id="water"></div>
+  <canvas id="game-canvas"></canvas>
 
-  <!-- Compass Tape -->
-  <div id="compass-wrap">
-    <div id="compass-needle"></div>
-    <div id="compass-tape">N · · · NE · · · E · · · SE · · · S · · · SW · · · W · · · NW · · · N</div>
-  </div>
-
-  <!-- Boss Health Bar -->
-  <div id="boss-hud">
-    <div id="boss-name">The Ancient Titan</div>
-    <div id="boss-bar"><div id="boss-bar-fill"></div></div>
-  </div>
-
-  <!-- Top Left Stats -->
-  <div id="topleft" class="panel">
-    <div class="bar-wrap">
-      <div class="lbl"><span>Health</span><span id="hpT">100/100</span></div>
-      <div class="bar" id="hpbar"><div></div></div>
+  <div id="ui-overlay">
+    <!-- Top Compass -->
+    <div id="compass-container">
+      <div id="compass-pointer"></div>
+      <div id="compass-tape">
+        <span>N</span><span>•</span><span>NE</span><span>•</span>
+        <span>E</span><span>•</span><span>SE</span><span>•</span>
+        <span>S</span><span>•</span><span>SW</span><span>•</span>
+        <span>W</span><span>•</span><span>NW</span><span>•</span>
+        <span>N</span><span>•</span><span>NE</span><span>•</span>
+        <span>E</span><span>•</span><span>SE</span><span>•</span>
+        <span>S</span><span>•</span><span>SW</span><span>•</span>
+        <span>W</span><span>•</span><span>NW</span><span>•</span>
+      </div>
     </div>
-    <div class="bar-wrap">
-      <div class="lbl"><span>Stamina</span><span id="stT">100%</span></div>
-      <div class="bar" id="stbar"><div></div></div>
-    </div>
-    <div class="bar-wrap">
-      <div class="lbl"><span>Hunger</span><span id="huT">100%</span></div>
-      <div class="bar" id="hubar"><div></div></div>
-    </div>
-    <div class="bar-wrap">
-      <div class="lbl"><span>Thruster Boost</span><span id="boostT">Ready</span></div>
-      <div class="bar" id="boostbar"><div></div></div>
-    </div>
-    <div class="bar-wrap" style="margin-bottom:0">
-      <div class="lbl"><span id="lvT">Level 1</span><span id="xpT">0/100 XP</span></div>
-      <div class="bar" id="xpbar"><div></div></div>
-    </div>
-  </div>
 
-  <!-- Top Right World Info -->
-  <div id="topright" class="panel">
-    <b id="clock">06:00</b> <span class="badge" id="dayT">Day 1</span><br>
-    <span id="weatherT">☀ Clear</span> · <span id="fps">60 FPS</span><br>
-    <span id="posT" style="opacity:0.8">0, 0, 0</span><br>
-    <span id="statsT" style="color:#a5d8ff"></span>
-  </div>
+    <!-- Boss Card -->
+    <div id="boss-card" class="glass-panel">
+      <div class="boss-name">👑 THE ANCIENT TITAN</div>
+      <div class="boss-track">
+        <div id="boss-hp-bar"></div>
+      </div>
+      <div id="boss-hp-val" style="font-size: 11px; margin-top: 4px; color: #ffaa99;">950 / 950</div>
+    </div>
 
-  <!-- Quest Log -->
-  <div id="quest" class="panel">
-    <h4>QUEST TRACKER <span style="font-size:10px;opacity:0.7">[F5 Save]</span></h4>
-    <div id="questT" style="color:#e2ecfc">Loading quest...</div>
-  </div>
-
-  <!-- Reticle & Aim -->
-  <div id="crosshair-container">
+    <!-- Reticle & Charge Ring -->
     <div id="crosshair"></div>
-    <div id="charge-ring"></div>
-  </div>
+    <div id="charge-reticle"></div>
 
-  <div id="hint" style="display:none"></div>
-  <div id="levelup">LEVEL UP!</div>
+    <!-- Vitals -->
+    <div id="vitals" class="glass-panel">
+      <div class="bar-wrap">
+        <span>❤️ HP</span>
+        <div class="bar-track"><div id="hp-bar" class="bar-fill"></div></div>
+        <span id="hp-val">100/100</span>
+      </div>
+      <div class="bar-wrap">
+        <span>⚡ STA</span>
+        <div class="bar-track"><div id="sta-bar" class="bar-fill"></div></div>
+      </div>
+      <div class="bar-wrap">
+        <span>🍗 HUN</span>
+        <div class="bar-track"><div id="hun-bar" class="bar-fill"></div></div>
+      </div>
+      <div class="bar-wrap">
+        <span id="lvl-val">LVL 1</span>
+        <div class="bar-track"><div id="xp-bar" class="bar-fill"></div></div>
+      </div>
+    </div>
 
-  <!-- Hotbar -->
-  <div id="hotbar-wrap">
-    <div id="build-mode-indicator">Building: Wood Block (RMB to Cycle)</div>
-    <div id="hotbar"></div>
-  </div>
+    <!-- Hotbar -->
+    <div id="hotbar">
+      <div class="hotbar-slot active"><span class="hotbar-num">1</span>⚡</div>
+      <div class="hotbar-slot"><span class="hotbar-num">2</span>🗡️</div>
+      <div class="hotbar-slot"><span class="hotbar-num">3</span>⛏️</div>
+      <div class="hotbar-slot"><span class="hotbar-num">4</span>🧱</div>
+      <div class="hotbar-slot"><span class="hotbar-num">5</span>🍖</div>
+      <div class="hotbar-slot"><span class="hotbar-num">6</span>🧪</div>
+    </div>
 
-  <!-- Minimap -->
-  <div id="minimap-wrap">
-    <canvas id="minimap" width="176" height="176"></canvas>
-  </div>
+    <!-- Dialogue Box -->
+    <div id="dialogue-modal" class="glass-panel">
+      <div id="dialogue-avatar">👤</div>
+      <div id="dialogue-content">
+        <div id="dialogue-name">NPC Name</div>
+        <div id="dialogue-title">Title</div>
+        <div id="dialogue-text">Dialogue text goes here...</div>
+        <div id="dialogue-choices"></div>
+      </div>
+    </div>
 
-  <div id="log"></div>
+    <!-- Map Modal -->
+    <div id="map-modal">
+      <h2 style="color: #00e5ff; letter-spacing: 2px;">TOPOGRAPHIC ISLAND SURVEY</h2>
+      <canvas id="map-canvas" width="460" height="460"></canvas>
+      <div style="font-size: 12px; color: #8faecf;">Press <kbd>M</kbd> to return to game view</div>
+    </div>
 
-  <!-- Crafting UI (Tab) -->
-  <div id="craft" class="panel">
-    <h2>CRAFTING & TECH FORGE</h2>
-    <div id="inv"></div>
-    <div id="recipes"></div>
-    <div style="text-align:center; margin-top:14px">
-      <button id="closeCraft">Close Forge (Tab)</button>
+    <!-- Crafting Modal -->
+    <div id="crafting-modal">
+      <div class="crafting-panel glass-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 style="color: #00e5ff;">TECH FORGE & CRAFTING</h2>
+          <span style="font-size:12px; color:#94a3b8;">Press <kbd>Tab</kbd> to exit</span>
+        </div>
+        <div id="crafting-list"></div>
+      </div>
+    </div>
+
+    <!-- Controls Guide -->
+    <div id="help-guide" class="glass-panel">
+      <div><kbd>WASD</kbd> Move • <kbd>Shift</kbd> Sprint</div>
+      <div><kbd>Space</kbd> Jump / <kbd>Hold in Air</kbd> Thruster Boost</div>
+      <div><kbd>LMB</kbd> Attack / <kbd>Hold</kbd> Charge Blaster</div>
+      <div><kbd>RMB</kbd> Parry Shield (Katana)</div>
+      <div><kbd>E</kbd> Interact with NPC / Summit Altar</div>
+      <div><kbd>Tab</kbd> Crafting • <kbd>M</kbd> Full Island Map</div>
+      <div><kbd>V</kbd> Toggle 1st / 3rd Person Camera</div>
     </div>
   </div>
 
-  <!-- Storage Chest UI (E on Chest) -->
-  <div id="chestModal" class="panel">
-    <h2 style="color:#7fd0ff; margin-bottom:8px">STORAGE CRATE</h2>
-    <p style="font-size:12px; opacity:0.8">Click an item to deposit or withdraw between inventory and storage.</p>
-    <div class="chest-grid" id="chestGrid"></div>
-    <div style="text-align:center"><button id="closeChest">Close Crate (E / Esc)</button></div>
-  </div>
-
-  <!-- World Map Overlay (M) -->
-  <div id="worldMapModal">
-    <h2 style="letter-spacing:3px; color:#7fd0ff; margin-bottom:12px">AETHERIA ARCHIPELAGO MAP</h2>
-    <canvas id="worldMapCanvas" width="500" height="500"></canvas>
-    <div style="margin-top:14px; font-size:13px; color:#cbd5e1">
-      <span style="color:#38ef7d">▲ You</span> &nbsp;|&nbsp;
-      <span style="color:#ff4757">☠ Ancient Titan Altar</span> &nbsp;|&nbsp;
-      <span style="color:#ffb347">■ Buildings/Chests</span> &nbsp;|&nbsp;
-      <span style="color:#f59e0b">🔥 Campfires</span>
-    </div>
-    <button style="margin-top:12px" onclick="document.getElementById('worldMapModal').style.display='none'; canvas.requestPointerLock();">Close Map (M / Esc)</button>
-  </div>
-
-  <!-- Death Screen -->
-  <div id="death">
-    <div>YOU DIED</div>
-    <small>Restoring consciousness at spawn sanctuary...</small>
-  </div>
-
-  <!-- Pause / Main Menu -->
-  <div id="menu" class="modal-screen" style="display:flex;">
-    <div class="modal-box panel">
-      <h1>AETHERIA 2.0</h1>
-      <p style="opacity:.8; margin:6px 0 20px;">Next-Gen 3D Procedural Survival Sandbox · Seed <span id="seedT" style="color:#7fd0ff; font-weight:bold"></span></p>
-      <div>
-        <button id="playBtn">▶ Enter World</button>
-        <button id="newBtn">🌍 New Seed</button>
-        <button id="saveBtn">💾 Save World</button>
-        <button id="loadBtn">📂 Load World</button>
-        <button id="setBtn">⚙ Settings</button>
-      </div>
-
-      <div id="settings" style="display:none; text-align:left; font-size:13px; margin:16px auto; max-width:380px;">
-        <label style="display:flex; justify-content:space-between; margin:8px 0">Mouse Sensitivity <input type="range" id="sSens" min="0.5" max="3" step="0.1"></label>
-        <label style="display:flex; justify-content:space-between; margin:8px 0">Render Distance <input type="range" id="sView" min="150" max="600" step="10"></label>
-        <label style="display:flex; justify-content:space-between; margin:8px 0">Resolution Scale <input type="range" id="sScale" min="0.6" max="1.5" step="0.1"></label>
-        <label style="display:flex; justify-content:space-between; margin:8px 0">Dynamic Shadows <input type="checkbox" id="sShadow"></label>
-        <label style="display:flex; justify-content:space-between; margin:8px 0">Dynamic Synthesizer Music <input type="checkbox" id="sMusic"></label>
-        <label style="display:flex; justify-content:space-between; margin:8px 0">Sound FX <input type="checkbox" id="sSound"></label>
-      </div>
-
-      <div class="controls">
-        <div><kbd>W A S D</kbd> Move</div>
-        <div><kbd>Shift</kbd> Sprint</div>
-        <div><kbd>Space</kbd> Jump / Swim</div>
-        <div><kbd>Space (Air)</kbd> Jetpack Boost</div>
-        <div><kbd>Ctrl</kbd> Stealth Crouch</div>
-        <div><kbd>Mouse Look</kbd> Aim Camera</div>
-        <div><kbd>LMB</kbd> Attack / Charge Blaster</div>
-        <div><kbd>RMB</kbd> Parry Blade / Aim</div>
-        <div><kbd>E</kbd> Interact (Altar, Chest, Cook)</div>
-        <div><kbd>1 - 6</kbd> / <kbd>Wheel</kbd> Hotbar</div>
-        <div><kbd>B</kbd> Cycle Build Material</div>
-        <div><kbd>M</kbd> Full Island Map</div>
-        <div><kbd>Tab</kbd> Tech Forge Crafting</div>
-        <div><kbd>V</kbd> Toggle 1st/3rd Person</div>
-        <div><kbd>F5 / F9</kbd> Quick Save / Load</div>
-        <div><kbd>Esc</kbd> Pause Menu</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
-</script>
-<script type="module">
-import * as THREE from 'three';
-
-/* ============================================================ 1. ENGINE UTILITIES & PRNG */
-const $ = id => document.getElementById(id);
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const lerp = (a, b, t) => a + (b - a) * t;
-const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
-
-const SEED = parseInt(location.hash.slice(1)) || 1337;
-$('seedT').textContent = SEED;
-function mulberry32(a) {
-  return function() {
-    a |= 0; a = a + 0x6D2B79F5 | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-const rng = mulberry32(SEED);
-
-/* Perlin noise & Fractal Brownian Motion */
-const perm = new Uint8Array(512);
-{
-  const p = [...Array(256).keys()];
-  for (let i = 255; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [p[i], p[j]] = [p[j], p[i]];
-  }
-  for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
-}
-const fade = t => t * t * t * (t * (t * 6 - 15) + 10);
-function grad(h, x, y) {
-  switch (h & 3) {
-    case 0: return x + y;
-    case 1: return -x + y;
-    case 2: return x - y;
-    default: return -x - y;
-  }
-}
-function noise2(x, y) {
-  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
-  x -= Math.floor(x); y -= Math.floor(y);
-  const u = fade(x), v = fade(y), a = perm[X] + Y, b = perm[X + 1] + Y;
-  return lerp(lerp(grad(perm[a], x, y), grad(perm[b], x - 1, y), u), lerp(grad(perm[a + 1], x, y - 1), grad(perm[b + 1], x - 1, y - 1), u), v);
-}
-function fbm(x, y, oct = 5) {
-  let v = 0, a = 1, f = 1, s = 0;
-  for (let i = 0; i < oct; i++) {
-    v += noise2(x * f, y * f) * a;
-    s += a; a *= 0.5; f *= 2;
-  }
-  return v / s;
-}
-
-/* ============================================================ 2. WORLD GEOGRAPHY & CONSTANTS */
-const SIZE = 620, HALF = SIZE / 2, WATER = 0, DAY_LEN = 320;
-const SUMMIT_ALTAR_POS = new THREE.Vector3(0, 0, -85);
-
-function getHeight(x, z) {
-  const d = Math.sqrt(x * x + z * z) / HALF;
-  let h = fbm(x * 0.006 + 31, z * 0.006 + 17, 5) * 26 + 4;
-  const m = fbm(x * 0.0025 + 200, z * 0.0025 + 90, 3);
-  h += Math.max(0, m - 0.12) * 125;
-  h += fbm(x * 0.04, z * 0.04, 2) * 1.3;
-  h -= Math.max(0, d - 0.62) * 105;
-  // Create an elevated ancient altar plateau at the mountain summit
-  const distAltar = Math.hypot(x - SUMMIT_ALTAR_POS.x, z - SUMMIT_ALTAR_POS.z);
-  if (distAltar < 25) {
-    h = Math.max(h, 48 + (25 - distAltar) * 0.4);
-  }
-  return h;
-}
-SUMMIT_ALTAR_POS.y = getHeight(SUMMIT_ALTAR_POS.x, SUMMIT_ALTAR_POS.z);
-
-/* ============================================================ 3. SETTINGS & AUDIO SYNTHESIZER */
-const settings = Object.assign({
-  sens: 1.2, view: 320, scale: 1, shadows: true, sound: true, music: true
-}, JSON.parse(localStorage.getItem('aeth_settings_v2') || '{}'));
-function saveSettings() { localStorage.setItem('aeth_settings_v2', JSON.stringify(settings)); }
-
-let actx, masterGain, sfxGain, musicGain, windGain;
-let musicStep = 0, musicTimer = 0, isMusicPlaying = false;
-const CHORDS_DAY = [
-  [261.63, 329.63, 392.00, 493.88], // Cmaj7
-  [220.00, 261.63, 329.63, 392.00], // Am7
-  [174.61, 220.00, 261.63, 329.63], // Fmaj7
-  [196.00, 246.94, 293.66, 392.00]  // G
-];
-const CHORDS_NIGHT = [
-  [146.83, 174.61, 220.00, 261.63], // Dm7
-  [116.54, 146.83, 174.61, 220.00], // Bbmaj7
-  [98.00, 116.54, 146.83, 174.61],  // Gm7
-  [110.00, 138.59, 164.81, 220.00]  // A7
-];
-
-function ensureAudio() {
-  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  actx = new AudioCtx();
-  masterGain = actx.createGain(); masterGain.connect(actx.destination);
-  sfxGain = actx.createGain(); sfxGain.connect(masterGain);
-  musicGain = actx.createGain(); musicGain.connect(masterGain);
-  sfxGain.gain.value = settings.sound ? 0.7 : 0;
-  musicGain.gain.value = (settings.sound && settings.music) ? 0.25 : 0;
-
-  // Wind Ambient Generator
-  const len = actx.sampleRate * 3;
-  const buf = actx.createBuffer(1, len, actx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1);
-  const noise = actx.createBufferSource();
-  noise.buffer = buf; noise.loop = true;
-  const filter = actx.createBiquadFilter();
-  filter.type = 'lowpass'; filter.frequency.value = 350;
-  windGain = actx.createGain(); windGain.gain.value = 0.04;
-  noise.connect(filter).connect(windGain).connect(sfxGain);
-  noise.start();
-}
-
-function tone(freq, dur = 0.1, type = 'sine', vol = 0.2, slide = 0) {
-  if (!actx || !settings.sound) return;
-  const o = actx.createOscillator(), g = actx.createGain();
-  o.type = type;
-  o.frequency.setValueAtTime(freq, actx.currentTime);
-  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq + slide), actx.currentTime + dur);
-  g.gain.setValueAtTime(vol, actx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
-  o.connect(g).connect(sfxGain);
-  o.start(); o.stop(actx.currentTime + dur + 0.02);
-}
-
-function noiseHit(dur = 0.25, vol = 0.25, freq = 600) {
-  if (!actx || !settings.sound) return;
-  const len = actx.sampleRate * dur, buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-  const s = actx.createBufferSource(); s.buffer = buf;
-  const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq;
-  const g = actx.createGain(); g.gain.value = vol;
-  s.connect(f).connect(g).connect(sfxGain);
-  s.start();
-}
-
-function playFootstep(type = 'grass') {
-  if (type === 'water') tone(180, 0.09, 'sine', 0.15, -60);
-  else if (type === 'stone') tone(340, 0.05, 'triangle', 0.1, -120);
-  else if (type === 'wood') tone(220, 0.06, 'sine', 0.12, -80);
-  else noiseHit(0.06, 0.1, 400); // grass/earth
-}
-
-function playArpChord(chord, isCombat = false) {
-  if (!actx || !settings.music || !settings.sound) return;
-  const now = actx.currentTime;
-  chord.forEach((noteFreq, i) => {
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type = isCombat ? 'sawtooth' : 'triangle';
-    osc.frequency.setValueAtTime(isCombat ? noteFreq * 0.5 : noteFreq, now + i * 0.08);
-    gain.gain.setValueAtTime(0.001, now + i * 0.08);
-    gain.gain.linearRampToValueAtTime(isCombat ? 0.08 : 0.05, now + i * 0.08 + 0.1);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.08 + (isCombat ? 0.6 : 3.5));
-    osc.connect(gain).connect(musicGain);
-    osc.start(now + i * 0.08);
-    osc.stop(now + i * 0.08 + (isCombat ? 0.7 : 3.6));
-  });
-}
-
-/* ============================================================ 4. RENDERER, SCENE & LIGHTING */
-const canvas = $('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
-
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1400);
-camera.rotation.order = 'YXZ';
-scene.fog = new THREE.Fog(0x87ceeb, 40, settings.view);
-
-function applyRenderSettings() {
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2) * settings.scale);
-  renderer.setSize(innerWidth, innerHeight);
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.shadowMap.enabled = settings.shadows;
-  sun.castShadow = settings.shadows;
-  scene.fog.far = settings.view;
-  camera.far = Math.max(1400, settings.view * 3.5);
-  renderer.shadowMap.needsUpdate = true;
-}
-addEventListener('resize', applyRenderSettings);
-
-/* Celestial Lights */
-const sun = new THREE.DirectionalLight(0xfff7e6, 2.8);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -90; sun.shadow.camera.right = 90;
-sun.shadow.camera.top = 90; sun.shadow.camera.bottom = -90;
-sun.shadow.camera.near = 1; sun.shadow.camera.far = 450;
-sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03;
-scene.add(sun); scene.add(sun.target);
-
-const moon = new THREE.DirectionalLight(0x8ba6ff, 0.45);
-scene.add(moon);
-const hemi = new THREE.HemisphereLight(0xcfe6ff, 0x3b522b, 0.8);
-scene.add(hemi);
-
-const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(22, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfff0a8, fog: false }));
-scene.add(sunMesh);
-const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(14, 16, 16), new THREE.MeshBasicMaterial({ color: 0xd8e3ff, fog: false }));
-scene.add(moonMesh);
-
-/* Twinkling Star Dome */
-const starCount = 2400;
-const starGeo = new THREE.BufferGeometry();
-const starPositions = new Float32Array(starCount * 3);
-for (let i = 0; i < starCount; i++) {
-  const theta = Math.random() * Math.PI * 2;
-  const phi = Math.acos(Math.random() * 2 - 1);
-  const r = 950;
-  starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-  starPositions[i * 3 + 1] = Math.abs(r * Math.cos(phi)) + 15;
-  starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
-}
-starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 2.4, sizeAttenuation: true, transparent: true, opacity: 0, fog: false, depthWrite: false });
-const stars = new THREE.Points(starGeo, starMat);
-scene.add(stars);
-
-/* Procedural Low-Poly Drifting Clouds */
-const CLOUD_COUNT = 65;
-const cloudGeo = new THREE.DodecahedronGeometry(1, 1);
-const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, flatShading: true });
-const cloudsMesh = new THREE.InstancedMesh(cloudGeo, cloudMat, CLOUD_COUNT * 6);
-const clouds = [];
-{
-  const mat4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
-  let idx = 0;
-  for (let c = 0; c < CLOUD_COUNT; c++) {
-    const cx = (rng() - 0.5) * SIZE * 1.6;
-    const cz = (rng() - 0.5) * SIZE * 1.6;
-    const cy = 68 + rng() * 24;
-    const speed = 1.2 + rng() * 1.8;
-    clouds.push({ x: cx, y: cy, z: cz, speed, startIdx: idx });
-    for (let pIdx = 0; pIdx < 6; pIdx++) {
-      const ox = (rng() - 0.5) * 22;
-      const oy = (rng() - 0.5) * 5;
-      const oz = (rng() - 0.5) * 16;
-      const sc = 7 + rng() * 9;
-      q.setFromEuler(new THREE.Euler(rng(), rng(), rng()));
-      mat4.compose(p.set(cx + ox, cy + oy, cz + oz), q, s.set(sc * 1.5, sc * 0.7, sc));
-      cloudsMesh.setMatrixAt(idx++, mat4);
-    }
-  }
-  cloudsMesh.instanceMatrix.needsUpdate = true;
-  scene.add(cloudsMesh);
-}
-
-/* ============================================================ 5. TERRAIN & DYNAMIC OCEAN */
-const SEG = 320;
-const tGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
-tGeo.rotateX(-Math.PI / 2);
-{
-  const pos = tGeo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    pos.setY(i, getHeight(pos.getX(i), pos.getZ(i)));
-  }
-  tGeo.computeVertexNormals();
-
-  const nrm = tGeo.attributes.normal;
-  const col = new Float32Array(pos.count * 3);
-  const c = new THREE.Color();
-  const sand = new THREE.Color(0.85, 0.79, 0.58);
-  const grassLush = new THREE.Color(0.24, 0.58, 0.22);
-  const forestDark = new THREE.Color(0.14, 0.38, 0.16);
-  const rock = new THREE.Color(0.44, 0.42, 0.40);
-  const snow = new THREE.Color(0.95, 0.97, 1.0);
-  const altarColor = new THREE.Color(0.22, 0.26, 0.35);
-
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-    const sl = nrm.getY(i);
-    const v = noise2(x * 0.08, z * 0.08);
-
-    c.copy(grassLush).lerp(forestDark, (v + 0.5) * 0.6);
-    c.lerp(sand, smooth(2.4, 0.5, y));
-    c.lerp(rock, smooth(0.80, 0.58, sl));
-    c.lerp(snow, smooth(45, 58, y + v * 6));
-
-    // Summit Altar rune stone tint
-    if (Math.hypot(x - SUMMIT_ALTAR_POS.x, z - SUMMIT_ALTAR_POS.z) < 22) {
-      c.lerp(altarColor, 0.85);
-    }
-
-    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
-  }
-  tGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-}
-const terrain = new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.05 }));
-terrain.receiveShadow = true;
-scene.add(terrain);
-
-/* Dynamic Ocean Plane */
-const waterGeo = new THREE.PlaneGeometry(SIZE * 1.8, SIZE * 1.8, 32, 32);
-waterGeo.rotateX(-Math.PI / 2);
-const waterMat = new THREE.MeshStandardMaterial({
-  color: 0x1976d2, transparent: true, opacity: 0.76, roughness: 0.15, metalness: 0.6
-});
-const water = new THREE.Mesh(waterGeo, waterMat);
-water.position.y = WATER;
-scene.add(water);
-
-const seabed = new THREE.Mesh(new THREE.PlaneGeometry(SIZE * 3, SIZE * 3), new THREE.MeshLambertMaterial({ color: 0x0c1b2f }));
-seabed.rotation.x = -Math.PI / 2; seabed.position.y = -35;
-scene.add(seabed);
-
-/* ============================================================ 6. VEGETATION, ROCKS & SUMMIT ALTAR */
-const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
-const treeGrid = new Map();
-const CELL = 14;
-const cellKey = (x, z) => `${((x + HALF) / CELL) | 0},${((z + HALF) / CELL) | 0}`;
-function slopeAt(x, z) {
-  const e = 1.6;
-  return Math.abs(getHeight(x + e, z) - getHeight(x - e, z)) + Math.abs(getHeight(x, z + e) - getHeight(x, z - e));
-}
-
-const trees = [];
-const trunkGeo = new THREE.CylinderGeometry(0.24, 0.38, 3.2, 7);
-const leafGeo = new THREE.ConeGeometry(2.1, 6.0, 8);
-const trunkMesh = new THREE.InstancedMesh(trunkGeo, new THREE.MeshLambertMaterial({ color: 0x5c3a21 }), 1650);
-const leafMesh = new THREE.InstancedMesh(leafGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), 1650);
-
-{
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
-  let n = 0, tries = 0;
-  while (n < 1650 && tries < 45000) {
-    tries++;
-    const x = (rng() - 0.5) * SIZE * 0.92, z = (rng() - 0.5) * SIZE * 0.92, y = getHeight(x, z);
-    if (y < 2.0 || y > 44 || slopeAt(x, z) > 2.5) continue;
-    if (Math.hypot(x - SUMMIT_ALTAR_POS.x, z - SUMMIT_ALTAR_POS.z) < 28) continue; // Keep altar clear
-    const sc = 0.75 + rng() * 0.75;
-    trees.push({ x, z, y, alive: true, hp: 3, i: n });
-    const k = cellKey(x, z);
-    if (!treeGrid.has(k)) treeGrid.set(k, []);
-    treeGrid.get(k).push(trees[n]);
-
-    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * 6.28);
-    m.compose(p.set(x, y + 1.6 * sc, z), q, s.set(sc, sc, sc));
-    trunkMesh.setMatrixAt(n, m);
-    m.compose(p.set(x, y + 3.4 * sc + 2.5 * sc, z), q, s.set(sc, sc, sc));
-    leafMesh.setMatrixAt(n, m);
-    c.setHSL(0.27 + rng() * 0.09, 0.65, 0.22 + rng() * 0.16);
-    leafMesh.setColorAt(n, c);
-    n++;
-  }
-  trunkMesh.count = leafMesh.count = n;
-  trunkMesh.castShadow = leafMesh.castShadow = true;
-  leafMesh.receiveShadow = true;
-  scene.add(trunkMesh, leafMesh);
-}
-
-/* Instanced Nodes (Rocks, Crystals, Forest Mushrooms) */
-function makeNodes(count, geo, mat, minY, maxY, hp, type) {
-  const list = [], mesh = new THREE.InstancedMesh(geo, mat, count);
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
-  let n = 0, tries = 0;
-  while (n < count && tries < 25000) {
-    tries++;
-    const x = (rng() - 0.5) * SIZE * 0.9, z = (rng() - 0.5) * SIZE * 0.9, y = getHeight(x, z);
-    if (y < minY || y > maxY || Math.hypot(x - SUMMIT_ALTAR_POS.x, z - SUMMIT_ALTAR_POS.z) < 26) continue;
-    const sc = 0.7 + rng() * 0.85;
-    list.push({ x, z, y, alive: true, hp, i: n, type });
-    q.setFromEuler(new THREE.Euler(rng() * 3, rng() * 3, rng() * 3));
-    m.compose(p.set(x, y + 0.3 * sc, z), q, s.set(sc, sc * 0.85, sc));
-    mesh.setMatrixAt(n, m);
-    n++;
-  }
-  mesh.count = n; mesh.castShadow = mesh.receiveShadow = true;
-  scene.add(mesh);
-  return { list, mesh };
-}
-
-const rocks = makeNodes(340, new THREE.DodecahedronGeometry(1.1, 0), new THREE.MeshStandardMaterial({ color: 0x6e6c68, roughness: 0.9, flatShading: true }), 1, 65, 4, 'rock');
-const crystals = makeNodes(85, new THREE.OctahedronGeometry(1.0, 0), new THREE.MeshStandardMaterial({ color: 0xbe8eff, emissive: 0x8b35ff, emissiveIntensity: 1.4, roughness: 0.15, flatShading: true }), 8, 85, 3, 'crystal');
-
-/* Summit Altar Structure */
-const altarGroup = new THREE.Group();
-altarGroup.position.copy(SUMMIT_ALTAR_POS);
-{
-  // Central Dais
-  const dais = new THREE.Mesh(new THREE.CylinderGeometry(8, 9, 1.2, 8), new THREE.MeshStandardMaterial({ color: 0x1f2438, roughness: 0.7 }));
-  dais.position.y = 0.6; dais.receiveShadow = true; altarGroup.add(dais);
-  // Altar Core Crystal
-  const coreCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.6, 0), new THREE.MeshStandardMaterial({ color: 0xff4757, emissive: 0xff2244, emissiveIntensity: 2.0, roughness: 0.1 }));
-  coreCrystal.position.y = 3.5; coreCrystal.name = 'altarCore'; altarGroup.add(coreCrystal);
-  const coreLight = new THREE.PointLight(0xff2255, 3, 20); coreLight.position.y = 3.5; altarGroup.add(coreLight);
-  // 4 Stone Monolith Pillars
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2;
-    const px = Math.cos(angle) * 6.5, pz = Math.sin(angle) * 6.5;
-    const pillar = new THREE.Mesh(new THREE.BoxGeometry(1.4, 6.5, 1.4), new THREE.MeshStandardMaterial({ color: 0x272e42, roughness: 0.8 }));
-    pillar.position.set(px, 3.25, pz); pillar.castShadow = true; altarGroup.add(pillar);
-  }
-}
-scene.add(altarGroup);
-
-/* Ambient Fireflies in Dark Forests */
-const FIREFLIES_N = 60;
-const fireflyGeo = new THREE.BufferGeometry();
-const fireflyPos = new Float32Array(FIREFLIES_N * 3);
-for (let i = 0; i < FIREFLIES_N; i++) {
-  fireflyPos[i * 3] = (rng() - 0.5) * SIZE * 0.7;
-  fireflyPos[i * 3 + 1] = 4 + rng() * 10;
-  fireflyPos[i * 3 + 2] = (rng() - 0.5) * SIZE * 0.7;
-}
-fireflyGeo.setAttribute('position', new THREE.BufferAttribute(fireflyPos, 3));
-const fireflies = new THREE.Points(fireflyGeo, new THREE.PointsMaterial({ color: 0x80ffb0, size: 0.45, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending }));
-scene.add(fireflies);
-
-/* ============================================================ 7. PLAYER, COMPANION DRONE & HUD */
-const player = {
-  pos: new THREE.Vector3(0, 0, 0), vel: new THREE.Vector3(),
-  hp: 100, maxHp: 100, stamina: 100, hunger: 100, boostFuel: 100,
-  onGround: false, crouch: false, xp: 0, level: 1,
-  dmgMult: 1, armor: 0, speedMult: 1,
-  inv: { wood: 0, stone: 0, food: 0, crystal: 0, titanCore: 0, cookedMeat: 0, medkit: 0 },
-  dead: false, eye: 1.7, bob: 0, parrying: false, chargeTime: 0
-};
-let yaw = 0, pitch = 0, firstPerson = true, slot = 0;
-const stats = { wood: 0, stone: 0, crystal: 0, blocks: 0, kills: 0, bosses: 0, days: 1, food: 0 };
-
-/* Spawn point on safe beach */
-{
-  let best = [0, 0];
-  for (let r = 10; r < 250 && best[0] === 0; r += 5) {
-    for (let a = 0; a < 6.28; a += 0.3) {
-      const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (getHeight(x, z) > 3.5 && getHeight(x, z) < 22) { best = [x, z]; break; }
-    }
-  }
-  player.pos.set(best[0], getHeight(best[0], best[1]) + 1, best[1]);
-}
-const spawnPoint = player.pos.clone();
-
-/* Player 3D Body Mesh */
-const playerMesh = new THREE.Group();
-{
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 1.1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x1e3c72, roughness: 0.4, metalness: 0.2 }));
-  body.position.y = 0.9; body.castShadow = true;
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.3), new THREE.MeshBasicMaterial({ color: 0x00f2fe }));
-  visor.position.set(0, 1.45, 0.22);
-  playerMesh.add(body, visor);
-  scene.add(playerMesh);
-}
-const torch = new THREE.PointLight(0xffaa44, 0, 24, 2);
-scene.add(torch);
-
-/* Companion Cyber-Drone */
-const drone = {
-  mesh: new THREE.Group(),
-  pos: player.pos.clone().add(new THREE.Vector3(1.5, 2, -1)),
-  targetPos: new THREE.Vector3(),
-  shootCd: 0
-};
-{
-  const dBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), new THREE.MeshStandardMaterial({ color: 0x222f3e, metalness: 0.8, roughness: 0.2 }));
-  const dEye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00d2d3 }));
-  dEye.position.z = 0.22;
-  const dRing = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.04, 6, 16), new THREE.MeshStandardMaterial({ color: 0x576574 }));
-  dRing.rotation.x = Math.PI / 2;
-  drone.mesh.add(dBody, dEye, dRing);
-  const dLight = new THREE.PointLight(0x00d2d3, 1.2, 14);
-  drone.mesh.add(dLight);
-  scene.add(drone.mesh);
-}
-
-/* View Models */
-const viewModel = new THREE.Group();
-camera.add(viewModel); scene.add(camera);
-const vmMats = {
-  blaster: new THREE.MeshStandardMaterial({ color: 0x1e272e, emissive: 0x00d2d3, emissiveIntensity: 0.6, metalness: 0.7 }),
-  blade: new THREE.MeshStandardMaterial({ color: 0x48dbfb, emissive: 0x0abde3, emissiveIntensity: 1.2, roughness: 0.1 }),
-  tool: new THREE.MeshStandardMaterial({ color: 0x833471, metalness: 0.4 }),
-  build: new THREE.MeshStandardMaterial({ color: 0xdfe4ea }),
-  food: new THREE.MeshStandardMaterial({ color: 0xff6b6b }),
-  medkit: new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x059669, emissiveIntensity: 0.5 })
-};
-const vmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.55), vmMats.blaster);
-vmMesh.position.set(0.32, -0.24, -0.5);
-viewModel.add(vmMesh);
-const muzzle = new THREE.PointLight(0x00d2d3, 0, 14, 2);
-muzzle.position.set(0.32, -0.2, -1.1);
-viewModel.add(muzzle);
-
-/* Hotbar Configuration */
-const HOTBAR = [
-  { id: 'blaster', name: 'Plasma Blaster', ico: '🔫', desc: 'LMB: Rapid Pulse / Hold LMB: Mega Shockwave' },
-  { id: 'blade', name: 'Energy Katana', ico: '⚔️', desc: 'LMB: 3-Hit Combo / RMB: Parry Stun' },
-  { id: 'tool', name: 'Omni-Pick/Axe', ico: '⛏️', desc: 'Mine Ore, Harvest Crystals & Chop Trees' },
-  { id: 'build', name: 'Building Kit', ico: '🧱', desc: 'LMB Place / RMB Cycle: Wood, Stone, Glass, Campfire, Chest, Turret' },
-  { id: 'food', name: 'Provisions', ico: '🍖', desc: 'LMB Eat: Restores Hunger & Health' },
-  { id: 'medkit', name: 'Nanite Medkit', ico: '💉', desc: 'LMB Inject: Instant +65 HP' }
-];
-
-/* Building Deployable Types */
-const BUILD_TYPES = [
-  { id: 'wood', name: 'Wood Block', cost: { wood: 2 }, color: 0xb58957 },
-  { id: 'stone', name: 'Stone Brick', cost: { stone: 2 }, color: 0x8395a7 },
-  { id: 'crystal', name: 'Crystal Forcefield', cost: { stone: 1, crystal: 1 }, color: 0xa29bfe, transparent: true, opacity: 0.75 },
-  { id: 'campfire', name: 'Campfire', cost: { wood: 6, stone: 4 }, deployable: true },
-  { id: 'chest', name: 'Storage Crate', cost: { wood: 8, stone: 2 }, deployable: true },
-  { id: 'turret', name: 'Crystal Turret', cost: { stone: 10, crystal: 4 }, deployable: true }
-];
-let buildTypeIdx = 0;
-
-/* ============================================================ 8. STRUCTURES & COLLISION */
-const blocks = [];
-const campfires = [];
-const chests = [];
-const turrets = [];
-
-function addBlock(x, y, z, bType = 'wood', silent = false) {
-  if (blocks.some(b => b.x === x && b.y === y && b.z === z)) return false;
-  const bConfig = BUILD_TYPES.find(b => b.id === bType) || BUILD_TYPES[0];
-  const geo = new THREE.BoxGeometry(2, 2, 2);
-  const mat = new THREE.MeshStandardMaterial({
-    color: bConfig.color, roughness: 0.7,
-    transparent: !!bConfig.transparent, opacity: bConfig.opacity || 1.0
-  });
-  const m = new THREE.Mesh(geo, mat);
-  m.position.set(x, y, z);
-  m.castShadow = m.receiveShadow = true;
-  scene.add(m);
-  blocks.push({ x, y, z, mesh: m, type: bType });
-  if (!silent) stats.blocks++;
-  return true;
-}
-
-function addDeployable(type, pos) {
-  if (type === 'campfire') {
-    const g = new THREE.Group();
-    const woodRing = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.22, 6, 8), new THREE.MeshStandardMaterial({ color: 0x5c3a21 }));
-    woodRing.rotation.x = Math.PI / 2;
-    const coals = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.6, 6), new THREE.MeshStandardMaterial({ color: 0xff3838, emissive: 0xff6b35, emissiveIntensity: 1.5 }));
-    coals.position.y = 0.3;
-    const fireLight = new THREE.PointLight(0xff7700, 3.5, 18);
-    fireLight.position.y = 1.0;
-    g.add(woodRing, coals, fireLight);
-    g.position.copy(pos);
-    scene.add(g);
-    campfires.push({ pos: pos.clone(), group: g, light: fireLight });
-    msg('🔥 Campfire deployed! Cooks food & wards off beasts.', '#ff9f43');
-    tone(300, 0.15, 'triangle', 0.2);
-  } else if (type === 'chest') {
-    const g = new THREE.Group();
-    const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 1.1), new THREE.MeshStandardMaterial({ color: 0x8c5b32, roughness: 0.6 }));
-    box.position.y = 0.55; box.castShadow = true;
-    const lock = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.1), new THREE.MeshStandardMaterial({ color: 0xf1c40f, metalness: 0.8 }));
-    lock.position.set(0, 0.6, 0.58);
-    g.add(box, lock); g.position.copy(pos);
-    scene.add(g);
-    chests.push({ pos: pos.clone(), group: g, items: { wood: 0, stone: 0, crystal: 0, food: 0 } });
-    msg('📦 Storage Crate placed! Press E to stash items.', '#ffd32a');
-    tone(350, 0.1, 'square', 0.2);
-  } else if (type === 'turret') {
-    const g = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 1.8, 8), new THREE.MeshStandardMaterial({ color: 0x2f3640, metalness: 0.7 }));
-    base.position.y = 0.9;
-    const crystalHead = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), new THREE.MeshStandardMaterial({ color: 0x9c88ff, emissive: 0x8c7ae6, emissiveIntensity: 1.5 }));
-    crystalHead.position.y = 2.2;
-    g.add(base, crystalHead); g.position.copy(pos);
-    scene.add(g);
-    turrets.push({ pos: pos.clone(), group: g, head: crystalHead, cd: 0 });
-    msg('🛡️ Crystal Defense Turret activated!', '#9c88ff');
-    tone(600, 0.2, 'sine', 0.25);
-  }
-}
-
-function removeBlock(mesh) {
-  const i = blocks.findIndex(b => b.mesh === mesh);
-  if (i < 0) return;
-  scene.remove(mesh);
-  blocks.splice(i, 1);
-}
-
-function groundAt(x, z, py) {
-  let g = getHeight(x, z);
-  for (const b of blocks) {
-    if (Math.abs(b.x - x) < 1.15 && Math.abs(b.z - z) < 1.15) {
-      const top = b.y + 1;
-      if (top <= py + 0.75 && top > g) g = top;
-    }
-  }
-  return g;
-}
-
-/* ============================================================ 9. ENTITIES, BOSS & PARTICLES */
-const enemies = [], animals = [], projectiles = [], particles = [], floatingTexts = [];
-
-const ENEMY_TYPES = {
-  crawler: { name: 'Void Crawler', hp: 35, speed: 6.2, dmg: 7, scale: 0.85, color: 0x574b90, xp: 20, aggro: 28 },
-  grunt: { name: 'Corrupted Grunt', hp: 60, speed: 4.5, dmg: 12, scale: 1.05, color: 0x991b1b, xp: 35, aggro: 32 },
-  brute: { name: 'Gargantuan Brute', hp: 210, speed: 3.2, dmg: 26, scale: 1.7, color: 0x3b1443, xp: 120, aggro: 40 }
-};
-
-/* The Ancient Titan Boss */
-let titanBoss = null;
-
-function makeBar(y, w = 1.3) {
-  const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x111111, depthTest: false }));
-  bg.scale.set(w, 0.15, 1); bg.position.y = y;
-  const fg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xff3838, depthTest: false }));
-  fg.center.set(0, 0.5); fg.scale.set(w * 0.96, 0.11, 1); fg.position.set(-w * 0.48, y, 0.001);
-  return { bg, fg };
-}
-
-function spawnTitanBoss() {
-  if (titanBoss) return;
-  const g = new THREE.Group();
-  const matStone = new THREE.MeshStandardMaterial({ color: 0x2d3436, roughness: 0.9, flatShading: true });
-  const matRune = new THREE.MeshStandardMaterial({ color: 0xff4757, emissive: 0xff3838, emissiveIntensity: 2.0 });
-
-  // Giant Torso
-  const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(3.5, 1), matStone);
-  torso.position.y = 5.5; torso.castShadow = true;
-  // Glowing Core
-  const core = new THREE.Mesh(new THREE.OctahedronGeometry(1.5, 0), matRune);
-  core.position.set(0, 5.5, 1.8);
-  // Head
-  const head = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.2, 2.4), matStone);
-  head.position.y = 9.2;
-  const eye = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 0.6), matRune);
-  eye.position.set(0, 9.4, 1.25);
-  // Heavy Arms
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(1.8, 5.5, 1.8), matStone); armL.position.set(-3.8, 5.0, 0);
-  const armR = new THREE.Mesh(new THREE.BoxGeometry(1.8, 5.5, 1.8), matStone); armR.position.set(3.8, 5.0, 0);
-
-  g.add(torso, core, head, eye, armL, armR);
-  g.position.copy(SUMMIT_ALTAR_POS);
-  scene.add(g);
-
-  titanBoss = {
-    group: g, pos: SUMMIT_ALTAR_POS.clone(),
-    hp: 950, maxHp: 950,
-    state: 'idle', atkCd: 3, slamCd: 5, laserCd: 8,
-    flash: 0, kb: new THREE.Vector3()
-  };
-
-  $('boss-hud').style.display = 'block';
-  $('boss-bar-fill').style.width = '100%';
-  msg('⚠️ THE ANCIENT TITAN AWAKENS AT THE SUMMIT!', '#ff4757');
-  tone(120, 1.5, 'sawtooth', 0.4, -60);
-  screenShake = 1.2;
-}
-
-function spawnEnemy(type, x, z) {
-  const t = ENEMY_TYPES[type];
-  const g = new THREE.Group(), s = t.scale;
-  const mat = new THREE.MeshStandardMaterial({ color: t.color, roughness: 0.7 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9 * s, 1.2 * s, 0.6 * s), mat);
-  body.position.y = 1.0 * s; body.castShadow = true;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.36 * s, 8, 8), mat);
-  head.position.y = 1.9 * s;
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
-  for (const dx of [-0.14, 0.14]) {
-    const eMesh = new THREE.Mesh(new THREE.SphereGeometry(0.06 * s, 6, 6), eyeMat);
-    eMesh.position.set(dx * s, 1.95 * s, 0.34 * s);
-    g.add(eMesh);
-  }
-  const arms = new THREE.Mesh(new THREE.BoxGeometry(1.5 * s, 0.25 * s, 0.25 * s), mat);
-  arms.position.y = 1.35 * s;
-  g.add(body, head, arms);
-
-  const bar = makeBar(2.6 * s);
-  g.add(bar.bg, bar.fg);
-  g.userData.bar = bar.fg; g.userData.mat = mat;
-  g.position.set(x, getHeight(x, z), z);
-  scene.add(g);
-
-  enemies.push({
-    type: t, pos: g.position.clone(), mesh: g,
-    hp: t.hp, state: 'wander', dir: rng() * 6.28,
-    wt: 0, atk: 0, kb: new THREE.Vector3(), flash: 0, stun: 0
-  });
-}
-
-function spawnAnimal(x, z) {
-  const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0x8b6540, roughness: 0.9 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 1.4), mat); body.position.y = 1.0; body.castShadow = true;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.45, 0.55), mat); head.position.set(0, 1.55, 0.8);
-  // Horns
-  const hornMat = new THREE.MeshStandardMaterial({ color: 0xecf0f1, roughness: 0.4 });
-  for (const dx of [-0.2, 0.2]) {
-    const horn = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.08, 0.6, 5), hornMat);
-    horn.position.set(dx, 1.95, 0.8); horn.rotation.x = -0.3; g.add(horn);
-  }
-  g.add(body, head);
-  for (const [lx, lz] of [[-0.25, 0.5], [0.25, 0.5], [-0.25, -0.5], [0.25, -0.5]]) {
-    const l = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.75, 0.16), mat);
-    l.position.set(lx, 0.38, lz); g.add(l);
-  }
-  const bar = makeBar(2.2);
-  g.add(bar.bg, bar.fg); g.userData.bar = bar.fg; g.userData.mat = mat;
-  g.position.set(x, getHeight(x, z), z);
-  scene.add(g);
-
-  animals.push({
-    pos: g.position.clone(), mesh: g,
-    hp: 35, maxHp: 35, dir: rng() * 6.28,
-    wt: 0, flee: 0, flash: 0
-  });
-}
-
-function randomLandNear(cx, cz, minR, maxR) {
-  for (let i = 0; i < 24; i++) {
-    const a = Math.random() * 6.28, r = minR + Math.random() * (maxR - minR);
-    const x = clamp(cx + Math.cos(a) * r, -HALF + 15, HALF - 15);
-    const z = clamp(cz + Math.sin(a) * r, -HALF + 15, HALF - 15);
-    if (getHeight(x, z) > 1.8) return [x, z];
-  }
-  return null;
-}
-
-for (let i = 0; i < 24; i++) {
-  const p = randomLandNear(player.pos.x, player.pos.z, 25, 140);
-  if (p) spawnAnimal(p[0], p[1]);
-}
-
-/* Particles & Explosions */
-const partGeo = new THREE.BoxGeometry(0.18, 0.18, 0.18);
-const partMats = {};
-function burst(p, color, n = 12, speed = 6) {
-  const mat = partMats[color] || (partMats[color] = new THREE.MeshBasicMaterial({ color }));
-  for (let i = 0; i < n && particles.length < 500; i++) {
-    const m = new THREE.Mesh(partGeo, mat);
-    m.position.copy(p);
-    scene.add(m);
-    particles.push({
-      m, v: new THREE.Vector3((Math.random() - 0.5) * speed, Math.random() * speed, (Math.random() - 0.5) * speed),
-      life: 0.4 + Math.random() * 0.5
-    });
-  }
-}
-
-/* Floating Damage Numbers */
-function showFloatingText(text, pos, color = '#ff4757', isCrit = false) {
-  const el = document.createElement('div');
-  el.textContent = text;
-  el.style.position = 'absolute';
-  el.style.color = color;
-  el.style.fontSize = isCrit ? '20px' : '15px';
-  el.style.fontWeight = '800';
-  el.style.textShadow = '0 0 8px rgba(0,0,0,0.8)';
-  el.style.pointerEvents = 'none';
-  el.style.transform = 'translate(-50%, -50%)';
-  el.style.transition = 'opacity 0.7s ease-out';
-  $('ui').appendChild(el);
-  floatingTexts.push({ el, pos: pos.clone(), yOff: 0, life: 0.75 });
-}
-
-/* ============================================================ 10. WEAPONS, COMBAT & INTERACTIONS */
-const raycaster = new THREE.Raycaster();
-const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
-let screenShake = 0;
-
-function aim(maxDist = 250) {
-  raycaster.setFromCamera({ x: 0, y: 0 }, camera);
-  raycaster.far = maxDist;
-  return raycaster;
-}
-function eyePos() {
-  return tmpV2.set(player.pos.x, player.pos.y + player.eye, player.pos.z);
-}
-
-function nodeHit(maxDist) {
-  const r = aim(maxDist);
-  const hits = r.intersectObjects([trunkMesh, leafMesh, rocks.mesh, crystals.mesh], false);
-  for (const h of hits) {
-    if (h.object === trunkMesh || h.object === leafMesh) {
-      const t = trees[h.instanceId];
-      if (t && t.alive) return { kind: 'tree', node: t, pt: h.point };
-    }
-    if (h.object === rocks.mesh) {
-      const n = rocks.list[h.instanceId];
-      if (n && n.alive) return { kind: 'rock', node: n, pt: h.point };
-    }
-    if (h.object === crystals.mesh) {
-      const n = crystals.list[h.instanceId];
-      if (n && n.alive) return { kind: 'crystal', node: n, pt: h.point };
-    }
-  }
-  return null;
-}
-
-function creatureHit(maxDist) {
-  const r = aim(maxDist);
-  const origin = r.ray.origin, dir = r.ray.direction;
-  let best = null, bd = maxDist;
-
-  // Check Titan Boss
-  if (titanBoss && titanBoss.hp > 0) {
-    tmpV.copy(titanBoss.pos); tmpV.y += 5;
-    const t = tmpV.sub(origin).dot(dir);
-    if (t > 0 && t < bd) {
-      const cp = origin.clone().addScaledVector(dir, t);
-      if (cp.distanceTo(tmpV) < 4.2) { best = titanBoss; bd = t; }
-    }
-  }
-
-  // Check regular creatures
-  for (const list of [enemies, animals]) {
-    for (const c of list) {
-      tmpV.copy(c.pos); tmpV.y += 1;
-      const t = tmpV.sub(origin).dot(dir);
-      if (t < 0 || t > bd) continue;
-      const cp = origin.clone().addScaledVector(dir, t);
-      if (cp.distanceTo(tmpV) < 1.3) { best = c; bd = t; }
-    }
-  }
-  return best;
-}
-
-function damageCreature(c, dmg, isCrit = false, knockbackMult = 1.0) {
-  c.hp -= dmg;
-  c.flash = 0.15;
-  const isTitan = c === titanBoss;
-  const hitPos = new THREE.Vector3(c.pos.x, c.pos.y + (isTitan ? 5 : 1), c.pos.z);
-
-  burst(hitPos, isTitan ? 0xff4757 : 0xff3838, isCrit ? 16 : 8, 5);
-  showFloatingText(isCrit ? `CRIT! -${Math.ceil(dmg)}` : `-${Math.ceil(dmg)}`, hitPos, isCrit ? '#ffd06b' : '#ff4757', isCrit);
-  noiseHit(0.12, 0.35, isTitan ? 400 : 1100);
-
-  const dir = new THREE.Vector3(c.pos.x - player.pos.x, 0, c.pos.z - player.pos.z).normalize();
-
-  if (isTitan) {
-    $('boss-bar-fill').style.width = `${Math.max(0, (titanBoss.hp / titanBoss.maxHp) * 100)}%`;
-    if (titanBoss.hp <= 0) {
-      scene.remove(titanBoss.group);
-      titanBoss = null;
-      $('boss-hud').style.display = 'none';
-      stats.bosses++; stats.kills++;
-      player.inv.titanCore = (player.inv.titanCore || 0) + 1;
-      addXp(600);
-      burst(hitPos, 0xffd700, 60, 12);
-      msg('🏆 VICTORY! The Ancient Titan has fallen! Titan Core acquired.', '#ffd06b');
-      tone(440, 0.4, 'sine', 0.35); setTimeout(() => tone(880, 0.6, 'sine', 0.35), 300);
-      checkQuests();
-    }
-  } else if (c.type) { // Hostile Enemy
-    c.kb.addScaledVector(dir, 5 * knockbackMult);
-    c.state = 'chase';
-    if (c.hp <= 0) {
-      scene.remove(c.mesh);
-      enemies.splice(enemies.indexOf(c), 1);
-      stats.kills++;
-      addXp(c.type.xp);
-      burst(hitPos, 0x8b1e1e, 22, 8);
-      if (Math.random() < 0.45) {
-        player.inv.crystal++; stats.crystal++;
-        msg('Enemy dropped a Crystal Shard 💎', '#c77dff');
-      }
-      buildHotbar(); checkQuests();
-    }
-  } else { // Neutral Animal
-    c.flee = 5;
-    c.dir = Math.atan2(dir.x, dir.z);
-    if (c.hp <= 0) {
-      scene.remove(c.mesh);
-      animals.splice(animals.indexOf(c), 1);
-      const drops = 2 + Math.floor(Math.random() * 2);
-      player.inv.food += drops; stats.food += drops;
-      addXp(20);
-      msg(`+${drops} Raw Venison Meat 🍖`, '#ffd06b');
-      buildHotbar();
-    }
-  }
-}
-
-function hurtPlayer(dmg) {
-  if (player.dead) return;
-  if (player.parrying) {
-    tone(750, 0.1, 'triangle', 0.4);
-    msg('🛡️ PARRY DEFLECT! Attack blocked.', '#7fd0ff');
-    $('shield-vignette').style.opacity = 1;
-    setTimeout(() => $('shield-vignette').style.opacity = 0, 150);
-    return;
-  }
-  dmg *= Math.max(0.2, 1 - player.armor * 0.22);
-  player.hp -= dmg;
-  vignette = 1;
-  screenShake = 0.5;
-  noiseHit(0.2, 0.5, 250);
-  if (player.hp <= 0) die();
-}
-
-function die() {
-  player.dead = true;
-  $('death').style.display = 'flex';
-  tone(120, 1.4, 'sawtooth', 0.35, -90);
-  setTimeout(() => {
-    player.pos.copy(spawnPoint);
-    player.vel.set(0, 0, 0);
-    player.hp = player.maxHp;
-    player.hunger = 70;
-    player.stamina = 100;
-    player.inv.wood = Math.floor(player.inv.wood * 0.7);
-    player.inv.stone = Math.floor(player.inv.stone * 0.7);
-    player.dead = false;
-    $('death').style.display = 'none';
-    buildHotbar();
-    msg('Respawned at safe sanctuary. 30% materials salvaged.', '#ff8080');
-  }, 3200);
-}
-
-let comboIndex = 0;
-function useItem() {
-  const item = HOTBAR[slot].id;
-
-  if (item === 'blaster') {
-    useCd = 0.18;
-    const r = aim(250);
-    const dir = r.ray.direction.clone();
-    const o = firstPerson ? camera.position.clone().add(new THREE.Vector3(0.3, -0.2, 0).applyQuaternion(camera.quaternion)) : eyePos().clone();
-    const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00f2fe }));
-    m.position.copy(o);
-    scene.add(m);
-    projectiles.push({ m, v: dir.multiplyScalar(85), life: 2.2, dmg: 24 * player.dmgMult, charged: false });
-    tone(920, 0.1, 'sawtooth', 0.16, -650);
-    muzzle.intensity = 30;
-    vmMesh.position.z = -0.38;
-  } else if (item === 'blade') {
-    useCd = 0.35;
-    comboIndex = (comboIndex + 1) % 3;
-    vmMesh.rotation.x = -1.2 + comboIndex * 0.4;
-    vmMesh.position.z = -0.35;
-    tone(420 + comboIndex * 120, 0.1, 'triangle', 0.25, 200);
-
-    const c = creatureHit(3.8);
-    if (c) {
-      damageCreature(c, (22 + comboIndex * 8) * player.dmgMult, comboIndex === 2, 1.4);
-    }
-  } else if (item === 'tool') {
-    useCd = 0.4;
-    vmMesh.rotation.x = -0.9;
-    const c = creatureHit(3.2);
-    if (c) { damageCreature(c, 16 * player.dmgMult); return; }
-
-    const h = nodeHit(4.2);
-    if (!h) { tone(200, 0.05, 'square', 0.05); return; }
-    const n = h.node; n.hp--;
-    burst(h.pt, h.kind === 'tree' ? 0x6b4a2b : h.kind === 'rock' ? 0x888888 : 0xb07cff, 8, 4);
-    noiseHit(0.08, 0.25, h.kind === 'tree' ? 550 : 1800);
-
-    if (n.hp <= 0) {
-      n.alive = false;
-      if (h.kind === 'tree') {
-        trunkMesh.setMatrixAt(n.i, ZERO); leafMesh.setMatrixAt(n.i, ZERO);
-        trunkMesh.instanceMatrix.needsUpdate = leafMesh.instanceMatrix.needsUpdate = true;
-        const g = 4 + Math.floor(Math.random() * 3);
-        player.inv.wood += g; stats.wood += g; msg(`+${g} Wood 🪵`);
-      } else if (h.kind === 'rock') {
-        rocks.mesh.setMatrixAt(n.i, ZERO); rocks.mesh.instanceMatrix.needsUpdate = true;
-        const g = 3 + Math.floor(Math.random() * 3);
-        player.inv.stone += g; stats.stone += g; msg(`+${g} Stone 🪨`);
-      } else {
-        crystals.mesh.setMatrixAt(n.i, ZERO); crystals.mesh.instanceMatrix.needsUpdate = true;
-        const g = 2 + Math.floor(Math.random() * 2);
-        player.inv.crystal += g; stats.crystal += g; msg(`+${g} Crystal Shard ✨`, '#c77dff');
-      }
-      addXp(10); buildHotbar(); checkQuests();
-    }
-  } else if (item === 'build') {
-    useCd = 0.32;
-    const bConfig = BUILD_TYPES[buildTypeIdx];
-    // Check costs
-    for (const [res, amt] of Object.entries(bConfig.cost)) {
-      if ((player.inv[res] || 0) < amt) {
-        msg(`Need ${amt} ${res} for ${bConfig.name}`, '#ff7675');
-        tone(160, 0.1, 'square', 0.2);
-        return;
-      }
-    }
-
-    const r = aim(8.5);
-    const hits = r.intersectObjects([terrain, ...blocks.map(b => b.mesh)], false);
-    if (!hits.length) return;
-    const h = hits[0];
-    const p = h.point.clone().addScaledVector(h.face.normal, 0.6);
-
-    if (bConfig.deployable) {
-      for (const [res, amt] of Object.entries(bConfig.cost)) player.inv[res] -= amt;
-      addDeployable(bConfig.id, h.point.clone());
-      buildHotbar(); checkQuests();
-    } else {
-      const bx = Math.floor(p.x / 2) * 2 + 1, by = Math.floor(p.y / 2) * 2 + 1, bz = Math.floor(p.z / 2) * 2 + 1;
-      if (Math.abs(bx - player.pos.x) < 1.3 && Math.abs(bz - player.pos.z) < 1.3 && by + 1 > player.pos.y && by - 1 < player.pos.y + 1.8) {
-        msg("Can't build inside yourself!", '#ff7675'); return;
-      }
-      if (addBlock(bx, by, bz, bConfig.id)) {
-        for (const [res, amt] of Object.entries(bConfig.cost)) player.inv[res] -= amt;
-        tone(320, 0.08, 'triangle', 0.2);
-        buildHotbar(); checkQuests();
-      }
-    }
-  } else if (item === 'food') {
-    useCd = 0.5;
-    if (player.inv.cookedMeat > 0) {
-      player.inv.cookedMeat--;
-      player.hunger = Math.min(100, player.hunger + 45);
-      player.hp = Math.min(player.maxHp, player.hp + 25);
-      tone(280, 0.2, 'sine', 0.2, 100);
-      msg('Ate Roasted Steak. Hearty meal! (+25 HP)', '#38ef7d');
-    } else if (player.inv.food > 0) {
-      player.inv.food--;
-      player.hunger = Math.min(100, player.hunger + 25);
-      player.hp = Math.min(player.maxHp, player.hp + 8);
-      tone(240, 0.2, 'sine', 0.2, 60);
-      msg('Ate Raw Meat. Better cooked at a Campfire.', '#ffd06b');
-    } else {
-      msg('No provisions left. Hunt deer or forage!', '#ff7675');
-    }
-    buildHotbar();
-  } else if (item === 'medkit') {
-    useCd = 0.6;
-    if ((player.inv.medkit || 0) < 1) {
-      msg('No Nanite Medkits in inventory. Craft in Forge (Tab)!', '#ff7675'); return;
-    }
-    player.inv.medkit--;
-    player.hp = Math.min(player.maxHp, player.hp + 65);
-    tone(550, 0.2, 'sine', 0.3, 200);
-    msg('Injected Nanite Medkit (+65 HP)', '#38ef7d');
-    buildHotbar();
-  }
-}
-
-function fireChargedBlaster() {
-  const r = aim(250);
-  const dir = r.ray.direction.clone();
-  const o = firstPerson ? camera.position.clone().add(new THREE.Vector3(0.3, -0.2, 0).applyQuaternion(camera.quaternion)) : eyePos().clone();
-  const m = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), new THREE.MeshBasicMaterial({ color: 0x00f2fe }));
-  m.position.copy(o);
-  scene.add(m);
-  projectiles.push({ m, v: dir.multiplyScalar(65), life: 2.5, dmg: 85 * player.dmgMult, charged: true });
-  tone(450, 0.35, 'sawtooth', 0.35, -300);
-  muzzle.intensity = 60;
-  screenShake = 0.4;
-  msg('⚡ OVERCHARGED BLAST RELEASED!', '#00f2fe');
-}
-
-/* ============================================================ 11. CRAFTING, CHESTS & QUESTS */
-const RECIPES = [
-  { name: 'Plasma Overcharger', desc: '+50% blaster & weapon damage', cost: { crystal: 4, stone: 12 }, fx: () => player.dmgMult += 0.5 },
-  { name: 'Titan Armor Plating', desc: '+22% damage reduction (max 3)', cost: { stone: 24, wood: 15 }, fx: () => player.armor = Math.min(3, player.armor + 1) },
-  { name: 'Nanite Medkit', desc: 'Synthesizes +65 HP instant heal syringe', cost: { food: 2, crystal: 1 }, fx: () => player.inv.medkit = (player.inv.medkit || 0) + 1 },
-  { name: 'Anti-Grav Thruster Boots', desc: '+20% base sprint & movement speed', cost: { wood: 18, crystal: 3 }, fx: () => player.speedMult += 0.2 },
-  { name: 'Hyper-Vitality Core', desc: '+30 Max HP permanently', cost: { crystal: 5, food: 5 }, fx: () => { player.maxHp += 30; player.hp += 30; } }
-];
-
-function renderCraft() {
-  $('inv').innerHTML = `
-    <span>🪵 Wood: <b>${player.inv.wood}</b></span>
-    <span>🪨 Stone: <b>${player.inv.stone}</b></span>
-    <span>💎 Crystals: <b>${player.inv.crystal}</b></span>
-    <span>🍖 Food: <b>${player.inv.food}</b></span>
-    <span>🥩 Steaks: <b>${player.inv.cookedMeat}</b></span>
-    <span>👑 Titan Cores: <b>${player.inv.titanCore || 0}</b></span>
-  `;
-  $('recipes').innerHTML = RECIPES.map(r => {
-    const can = Object.entries(r.cost).every(([k, v]) => (player.inv[k] || 0) >= v);
-    const costTxt = Object.entries(r.cost).map(([k, v]) => `${v} ${k}`).join(', ');
-    return `
-      <div class="recipe">
-        <div><b>${r.name}</b><br><span class="cost">${r.desc} · Cost: ${costTxt}</span></div>
-        <button class="craft-btn" ${!can ? 'disabled' : ''} data-name="${r.name}">Craft</button>
-      </div>
-    `;
-  }).join('');
-
-  document.querySelectorAll('.craft-btn').forEach(btn => {
-    btn.onclick = () => {
-      const r = RECIPES.find(x => x.name === btn.dataset.name);
-      if (!r) return;
-      for (const [k, v] of Object.entries(r.cost)) player.inv[k] -= v;
-      r.fx();
-      tone(520, 0.15, 'triangle', 0.25, 300);
-      msg(`✔ Crafted ${r.name}`, '#c77dff');
-      renderCraft(); buildHotbar();
-    };
-  });
-}
-
-const QUESTS = [
-  { text: 'Gather 10 Wood using Omni-Tool on trees', key: 'wood', goal: 10 },
-  { text: 'Mine 10 Stone from rocky crags', key: 'stone', goal: 10 },
-  { text: 'Construct 5 blocks or shelters with Building Kit', key: 'blocks', goal: 5 },
-  { text: 'Defeat 5 corrupted nocturnal enemies', key: 'kills', goal: 5 },
-  { text: 'Harvest 4 Glowing Crystals from mountain slopes', key: 'crystal', goal: 4 },
-  { text: 'Craft an upgrade in the Tech Forge (Tab)', key: 'kills', goal: 6 },
-  { text: 'Survive until Day 3', key: 'days', goal: 3 },
-  { text: 'Reach the Mountain Altar and vanquish The Ancient Titan', key: 'bosses', goal: 1 }
-];
-let questIdx = 0;
-
-function checkQuests() {
-  while (questIdx < QUESTS.length && stats[QUESTS[questIdx].key] >= QUESTS[questIdx].goal) {
-    msg(`★ Quest Complete: ${QUESTS[questIdx].text}`, '#c77dff');
-    questIdx++; addXp(150);
-    tone(660, 0.15, 'sine', 0.25); setTimeout(() => tone(990, 0.25, 'sine', 0.25), 140);
-  }
-  const q = QUESTS[questIdx];
-  $('questT').textContent = q ? `${q.text} (${Math.min(stats[q.key], q.goal)}/${q.goal})` : '🏆 All Island Trials Complete! You are the Sovereign of Aetheria.';
-}
-
-function addXp(n) {
-  player.xp += n;
-  while (player.xp >= player.level * 100) {
-    player.xp -= player.level * 100;
-    player.level++;
-    player.maxHp += 12; player.hp = player.maxHp;
-    $('levelup').style.opacity = 1;
-    $('levelup').style.transform = 'translateX(-50%) scale(1.1)';
-    setTimeout(() => {
-      $('levelup').style.opacity = 0;
-      $('levelup').style.transform = 'translateX(-50%) scale(1)';
-    }, 2000);
-    msg(`Level ${player.level} Reached! Max HP increased.`, '#c77dff');
-    tone(440, 0.2, 'sine', 0.3); setTimeout(() => tone(880, 0.35, 'sine', 0.3), 160);
-  }
-}
-
-function buildHotbar() {
-  $('hotbar').innerHTML = HOTBAR.map((h, i) => {
-    let countBadge = '';
-    if (h.id === 'tool') countBadge = '';
-    else if (h.id === 'build') countBadge = BUILD_TYPES[buildTypeIdx].name.split(' ')[0];
-    else if (h.id === 'food') countBadge = `${player.inv.cookedMeat}🥩 / ${player.inv.food}🍖`;
-    else if (h.id === 'medkit') countBadge = `${player.inv.medkit || 0}`;
-    return `
-      <div class="slot ${i === slot ? 'active' : ''}">
-        <span class="k">${i + 1}</span>
-        <span class="ico">${h.ico}</span>
-        ${h.name}
-        <span class="c">${countBadge}</span>
-      </div>
-    `;
-  }).join('');
-}
-
-/* ============================================================ 12. MINIMAP & FULL-SCREEN TOPOGRAPHIC MAP */
-const miniSrc = document.createElement('canvas');
-miniSrc.width = miniSrc.height = 180;
-{
-  const ctx = miniSrc.getContext('2d'), img = ctx.createImageData(180, 180);
-  for (let py = 0; py < 180; py++) {
-    for (let px = 0; px < 180; px++) {
-      const x = (px / 180 - 0.5) * SIZE, z = (py / 180 - 0.5) * SIZE;
-      const h = getHeight(x, z);
-      let r, g, b;
-      if (h < WATER) { r = 24; g = 80 + Math.max(0, h + 20) * 2.5; b = 170; }
-      else if (h < 2.5) { r = 210; g = 195; b = 145; }
-      else if (h > 46) { r = 245; g = 248; b = 255; }
-      else { const t = h / 46; r = 35 + t * 90; g = 120 + t * 35; b = 28 + t * 75; }
-      const i = (py * 180 + px) * 4;
-      img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
-const mctx = $('minimap').getContext('2d');
-function drawMinimap() {
-  const S = 176, scale = S / SIZE;
-  mctx.clearRect(0, 0, S, S);
-  mctx.save();
-  mctx.beginPath(); mctx.arc(S / 2, S / 2, S / 2, 0, 6.28); mctx.clip();
-  mctx.drawImage(miniSrc, 0, 0, S, S);
-
-  const dot = (x, z, c, r = 2) => {
-    mctx.fillStyle = c; mctx.beginPath();
-    mctx.arc((x + HALF) * scale, (z + HALF) * scale, r, 0, 6.28);
-    mctx.fill();
-  };
-
-  for (const b of blocks) dot(b.x, b.z, '#ffb347', 1.8);
-  for (const f of campfires) dot(f.pos.x, f.pos.z, '#ff7700', 3);
-  for (const a of animals) dot(a.pos.x, a.pos.z, '#ffffff', 2);
-  for (const e of enemies) dot(e.pos.x, e.pos.z, '#ff3838', 2.8);
-  if (titanBoss) dot(titanBoss.pos.x, titanBoss.pos.z, '#ff0055', 6);
-  dot(SUMMIT_ALTAR_POS.x, SUMMIT_ALTAR_POS.z, '#9b5de5', 4);
-
-  // Player arrow
-  const px = (player.pos.x + HALF) * scale, pz = (player.pos.z + HALF) * scale;
-  mctx.translate(px, pz); mctx.rotate(-yaw);
-  mctx.fillStyle = '#00f2fe';
-  mctx.beginPath(); mctx.moveTo(0, -7); mctx.lineTo(5, 5); mctx.lineTo(-5, 5); mctx.closePath();
-  mctx.fill();
-  mctx.restore();
-}
-
-function drawWorldMap() {
-  const c = $('worldMapCanvas'), ctx = c.getContext('2d');
-  const S = 500, scale = S / SIZE;
-  ctx.clearRect(0, 0, S, S);
-  ctx.drawImage(miniSrc, 0, 0, S, S);
-
-  const dot = (x, z, color, r = 4, label = '') => {
-    const sx = (x + HALF) * scale, sz = (z + HALF) * scale;
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(sx, sz, r, 0, 6.28); ctx.fill();
-    if (label) {
-      ctx.font = '11px sans-serif'; ctx.fillStyle = '#ffffff';
-      ctx.fillText(label, sx + 6, sz + 4);
-    }
-  };
-
-  for (const b of blocks) dot(b.x, b.z, '#ffb347', 2.5);
-  for (const f of campfires) dot(f.pos.x, f.pos.z, '#f59e0b', 4, 'Campfire');
-  for (const ch of chests) dot(ch.pos.x, ch.pos.z, '#ffd32a', 4, 'Crate');
-  dot(SUMMIT_ALTAR_POS.x, SUMMIT_ALTAR_POS.z, '#ff4757', 7, 'Summit Altar');
-  dot(player.pos.x, player.pos.z, '#38ef7d', 6, 'You');
-}
-
-/* ============================================================ 13. INPUT & EVENT LISTENERS */
-const keys = {};
-let locked = false, started = false, craftOpen = false, chestOpen = false, mapOpen = false;
-let mouseDown = false, rightDown = false, useCd = 0;
-
-addEventListener('keydown', e => {
-  keys[e.code] = true;
-  if (e.code === 'Tab') { e.preventDefault(); toggleCraft(); }
-  if (e.code === 'KeyM') { e.preventDefault(); toggleWorldMap(); }
-  if (e.code === 'KeyE') { e.preventDefault(); handleInteract(); }
-  if (e.code === 'KeyB') { e.preventDefault(); cycleBuildType(); }
-  if (e.code === 'F5') { e.preventDefault(); saveGame(); }
-  if (e.code === 'F9') { e.preventDefault(); loadGame(); }
-
-  if (!locked) return;
-  if (e.code === 'KeyV') firstPerson = !firstPerson;
-  if (/^Digit[1-6]$/.test(e.code)) {
-    slot = +e.code[5] - 1;
-    buildHotbar();
-    updateBuildIndicator();
-  }
-  // Jetpack double jump in air
-  if (e.code === 'Space' && !player.onGround && player.boostFuel > 15) {
-    player.vel.y = 12.5;
-    player.boostFuel -= 25;
-    burst(player.pos, 0x10b981, 14, 5);
-    tone(550, 0.15, 'triangle', 0.25, 250);
-    msg('🚀 Thruster Boost!', '#10b981');
-  }
-});
-
-addEventListener('keyup', e => keys[e.code] = false);
-addEventListener('wheel', e => {
-  if (!locked) return;
-  slot = (slot + (e.deltaY > 0 ? 1 : -1) + 6) % 6;
-  buildHotbar();
-  updateBuildIndicator();
-});
-
-addEventListener('mousemove', e => {
-  if (!locked) return;
-  const s = 0.0022 * settings.sens;
-  yaw -= e.movementX * s;
-  pitch = clamp(pitch - e.movementY * s, -1.5, 1.5);
-});
-
-canvas.addEventListener('mousedown', e => {
-  ensureAudio();
-  if (!locked) {
-    if (started && !craftOpen && !chestOpen && !mapOpen) canvas.requestPointerLock();
-    return;
-  }
-  if (e.button === 0) mouseDown = true;
-  if (e.button === 2) {
-    rightDown = true;
-    if (HOTBAR[slot].id === 'blade') {
-      player.parrying = true;
-      msg('🛡️ Parry Shield Raised', '#7fd0ff');
-    } else if (HOTBAR[slot].id === 'build') {
-      cycleBuildType();
-    }
-  }
-});
-
-addEventListener('mouseup', e => {
-  if (e.button === 0) {
-    if (mouseDown && player.chargeTime > 0.6 && HOTBAR[slot].id === 'blaster') {
-      fireChargedBlaster();
-    }
-    mouseDown = false;
-    player.chargeTime = 0;
-    $('charge-ring').style.opacity = 0;
-  }
-  if (e.button === 2) {
-    rightDown = false;
-    player.parrying = false;
-  }
-});
-
-addEventListener('contextmenu', e => e.preventDefault());
-
-document.addEventListener('pointerlockchange', () => {
-  locked = document.pointerLockElement === canvas;
-  if (locked) {
-    $('menu').style.display = 'none';
-  } else if (!craftOpen && !chestOpen && !mapOpen) {
-    $('menu').style.display = 'flex';
-    $('playBtn').textContent = '▶ Resume';
-  }
-  mouseDown = rightDown = player.parrying = false;
-});
-
-function cycleBuildType() {
-  buildTypeIdx = (buildTypeIdx + 1) % BUILD_TYPES.length;
-  updateBuildIndicator();
-  buildHotbar();
-  tone(480, 0.08, 'sine', 0.15);
-}
-
-function updateBuildIndicator() {
-  const el = $('build-mode-indicator');
-  if (HOTBAR[slot].id === 'build') {
-    el.style.display = 'block';
-    el.textContent = `Build: ${BUILD_TYPES[buildTypeIdx].name} (RMB to Cycle)`;
-  } else {
-    el.style.display = 'none';
-  }
-}
-
-function toggleCraft() {
-  if (!started) return;
-  craftOpen = !craftOpen;
-  $('craft').style.display = craftOpen ? 'block' : 'none';
-  if (craftOpen) { renderCraft(); document.exitPointerLock(); }
-  else canvas.requestPointerLock();
-}
-$('closeCraft').onclick = toggleCraft;
-
-function toggleWorldMap() {
-  if (!started) return;
-  mapOpen = !mapOpen;
-  $('worldMapModal').style.display = mapOpen ? 'flex' : 'none';
-  if (mapOpen) { drawWorldMap(); document.exitPointerLock(); }
-  else canvas.requestPointerLock();
-}
-
-function handleInteract() {
-  // 1. Summit Altar Summon Titan
-  if (player.pos.distanceTo(SUMMIT_ALTAR_POS) < 12) {
-    if (!titanBoss) spawnTitanBoss();
-    else msg('The Titan is already raging!', '#ff4757');
-    return;
-  }
-  // 2. Campfire Cook Meat
-  const nearCamp = campfires.find(c => c.pos.distanceTo(player.pos) < 4.5);
-  if (nearCamp) {
-    if (player.inv.food > 0) {
-      player.inv.food--;
-      player.inv.cookedMeat = (player.inv.cookedMeat || 0) + 1;
-      tone(350, 0.2, 'sine', 0.25, 80);
-      msg('🥩 Sizzling steak cooked at campfire! Restores high HP/Hunger.', '#38ef7d');
-      buildHotbar();
-    } else {
-      msg('No raw meat to cook. Hunt deer with Blaster/Blade!', '#ff7675');
-    }
-    return;
-  }
-  // 3. Storage Chest
-  const nearChest = chests.find(c => c.pos.distanceTo(player.pos) < 4.5);
-  if (nearChest) {
-    openChestUI(nearChest);
-  }
-}
-
-function openChestUI(chest) {
-  chestOpen = true;
-  document.exitPointerLock();
-  $('chestModal').style.display = 'block';
-  const grid = $('chestGrid');
-  const items = ['wood', 'stone', 'crystal', 'food'];
-  grid.innerHTML = items.map(k => `
-    <div class="chest-item" onclick="transferChestItem('${k}', true)">
-      <b>${k.toUpperCase()}</b><br>
-      Crate: <b>${chest.items[k] || 0}</b><br>
-      Inv: <b>${player.inv[k] || 0}</b><br>
-      <small style="color:#7fd0ff">Deposit (5)</small>
-    </div>
-  `).join('');
-
-  window.transferChestItem = (k, deposit) => {
-    if (deposit) {
-      const amt = Math.min(5, player.inv[k] || 0);
-      player.inv[k] -= amt; chest.items[k] = (chest.items[k] || 0) + amt;
-    } else {
-      const amt = Math.min(5, chest.items[k] || 0);
-      chest.items[k] -= amt; player.inv[k] = (player.inv[k] || 0) + amt;
-    }
-    tone(400, 0.08, 'triangle', 0.15);
-    openChestUI(chest); buildHotbar();
-  };
-}
-$('closeChest').onclick = () => {
-  $('chestModal').style.display = 'none';
-  chestOpen = false;
-  canvas.requestPointerLock();
-};
-
-/* Menu Buttons */
-$('playBtn').onclick = () => { ensureAudio(); started = true; canvas.requestPointerLock(); };
-$('newBtn').onclick = () => { location.hash = Math.floor(Math.random() * 999999); location.reload(); };
-$('saveBtn').onclick = () => saveGame();
-$('loadBtn').onclick = () => { loadGame(); started = true; };
-$('setBtn').onclick = () => { const s = $('settings'); s.style.display = s.style.display === 'block' ? 'none' : 'block'; };
-
-/* Settings inputs */
-$('sSens').value = settings.sens; $('sView').value = settings.view; $('sScale').value = settings.scale;
-$('sShadow').checked = settings.shadows; $('sMusic').checked = settings.music; $('sSound').checked = settings.sound;
-$('sSens').oninput = e => { settings.sens = +e.target.value; saveSettings(); };
-$('sView').oninput = e => { settings.view = +e.target.value; saveSettings(); applyRenderSettings(); };
-$('sScale').oninput = e => { settings.scale = +e.target.value; saveSettings(); applyRenderSettings(); };
-$('sShadow').onchange = e => { settings.shadows = e.target.checked; saveSettings(); applyRenderSettings(); };
-$('sMusic').onchange = e => {
-  settings.music = e.target.checked; saveSettings();
-  if (musicGain) musicGain.gain.value = settings.music ? 0.25 : 0;
-};
-$('sSound').onchange = e => {
-  settings.sound = e.target.checked; saveSettings();
-  if (sfxGain) sfxGain.gain.value = settings.sound ? 0.7 : 0;
-};
-if (!localStorage.getItem('aeth_save_v2')) $('loadBtn').disabled = true;
-
-/* ============================================================ 14. SAVE & LOAD SYSTEM */
-function saveGame() {
-  const d = {
-    seed: SEED, pos: player.pos.toArray(), yaw, pitch,
-    hp: player.hp, maxHp: player.maxHp, hunger: player.hunger,
-    xp: player.xp, level: player.level, dmgMult: player.dmgMult, armor: player.armor, speedMult: player.speedMult,
-    inv: player.inv, stats, questIdx, gameTime,
-    blocks: blocks.map(b => [b.x, b.y, b.z, b.type]),
-    campfires: campfires.map(c => c.pos.toArray()),
-    chests: chests.map(c => ({ pos: c.pos.toArray(), items: c.items })),
-    deadTrees: trees.filter(t => !t.alive).map(t => t.i),
-    deadRocks: rocks.list.filter(t => !t.alive).map(t => t.i),
-    deadCrystals: crystals.list.filter(t => !t.alive).map(t => t.i)
-  };
-  localStorage.setItem('aeth_save_v2', JSON.stringify(d));
-  $('loadBtn').disabled = false;
-  msg('💾 World progress successfully saved!', '#38ef7d');
-  tone(550, 0.1, 'sine', 0.2);
-}
-
-function loadGame() {
-  const d = JSON.parse(localStorage.getItem('aeth_save_v2') || 'null');
-  if (!d) { msg('No save found!', '#ff7675'); return; }
-  if (d.seed !== SEED) { location.hash = d.seed; location.reload(); return; }
-
-  player.pos.fromArray(d.pos); yaw = d.yaw; pitch = d.pitch;
-  player.hp = d.hp; player.maxHp = d.maxHp; player.hunger = d.hunger;
-  player.xp = d.xp; player.level = d.level; player.dmgMult = d.dmgMult;
-  player.armor = d.armor; player.speedMult = d.speedMult;
-  Object.assign(player.inv, d.inv); Object.assign(stats, d.stats);
-  questIdx = d.questIdx; gameTime = d.gameTime;
-
-  for (const b of blocks) scene.remove(b.mesh);
-  blocks.length = 0;
-  for (const b of d.blocks) addBlock(b[0], b[1], b[2], b[3] || 'wood', true);
-
-  for (const c of campfires) scene.remove(c.group); campfires.length = 0;
-  if (d.campfires) d.campfires.forEach(p => addDeployable('campfire', new THREE.Vector3().fromArray(p)));
-
-  for (const ch of chests) scene.remove(ch.group); chests.length = 0;
-  if (d.chests) d.chests.forEach(c => {
-    addDeployable('chest', new THREE.Vector3().fromArray(c.pos));
-    chests[chests.length - 1].items = c.items;
-  });
-
-  const kill = (arr, mesh, ids) => {
-    for (const i of ids) { arr[i].alive = false; mesh.setMatrixAt(i, ZERO); }
-    mesh.instanceMatrix.needsUpdate = true;
-  };
-  kill(trees, trunkMesh, d.deadTrees); kill(trees, leafMesh, d.deadTrees);
-  kill(rocks.list, rocks.mesh, d.deadRocks); kill(crystals.list, crystals.mesh, d.deadCrystals);
-
-  buildHotbar(); checkQuests();
-  msg('📂 World loaded successfully!', '#38ef7d');
-}
-
-function msg(t, color = '#7fd0ff') {
-  const d = document.createElement('div');
-  d.textContent = t; d.style.borderColor = color;
-  $('log').prepend(d);
-  setTimeout(() => {
-    d.style.opacity = '0'; d.style.transition = 'opacity .6s';
-    setTimeout(() => d.remove(), 600);
-  }, 4800);
-  while ($('log').children.length > 6) $('log').lastChild.remove();
-}
-
-/* ============================================================ 15. MAIN ENGINE UPDATE LOOP */
-let gameTime = DAY_LEN * 0.28, spawnTimer = 0, frames = 0, fpsTime = 0, hudTimer = 0, sunEl = 1, daylight = 1;
-const skyDay = new THREE.Color(0x87ceeb), skySet = new THREE.Color(0xff764d), skyNight = new THREE.Color(0x060918), skyCol = new THREE.Color(), fogCol = new THREE.Color();
-const forward = new THREE.Vector3(), right = new THREE.Vector3(), move = new THREE.Vector3();
-let stepTimer = 0, vignette = 0;
-
-function updateEnvironment(dt) {
-  gameTime += dt;
-  const day = Math.floor(gameTime / DAY_LEN) + 1;
-  if (day > stats.days) {
-    stats.days = day;
-    msg(`🌅 Day ${day} dawns over Aetheria.`);
-    checkQuests();
-  }
-
-  const frac = (gameTime / DAY_LEN) % 1;
-  const ang = frac * Math.PI * 2 - Math.PI / 2;
-  sunEl = Math.sin(ang);
-  daylight = smooth(-0.14, 0.28, sunEl);
-
-  const sd = new THREE.Vector3(Math.cos(ang), Math.sin(ang), 0.35).normalize();
-  sun.position.copy(player.pos).addScaledVector(sd, 140);
-  sun.target.position.copy(player.pos);
-  sun.intensity = 2.8 * daylight;
-  sun.color.setHSL(0.1, 0.6, lerp(0.6, 1.0, smooth(0, 0.4, sunEl)));
-
-  moon.position.copy(player.pos).addScaledVector(sd, -140);
-  moon.target = sun.target;
-  moon.intensity = 0.45 * (1 - daylight);
-
-  hemi.intensity = 0.15 + 0.85 * daylight;
-
-  sunMesh.position.copy(camera.position).addScaledVector(sd, 800);
-  moonMesh.position.copy(camera.position).addScaledVector(sd, -800);
-  stars.position.copy(camera.position);
-  starMat.opacity = (1 - daylight);
-
-  if (sunEl < 0) skyCol.copy(skyNight).lerp(skySet, smooth(-0.35, 0, sunEl));
-  else skyCol.copy(skySet).lerp(skyDay, smooth(0, 0.38, sunEl));
-
-  scene.background = skyCol;
-  fogCol.copy(skyCol);
-  scene.fog.color = fogCol;
-
-  // Ocean wave animation
-  water.position.y = WATER + Math.sin(gameTime * 1.5) * 0.12;
-
-  // Drifting Clouds
-  const cMat4 = new THREE.Matrix4(), cQ = new THREE.Quaternion(), cS = new THREE.Vector3(), cP = new THREE.Vector3();
-  for (let c = 0; c < CLOUD_COUNT; c++) {
-    const cl = clouds[c];
-    cl.x += cl.speed * dt * 2.5;
-    if (cl.x > SIZE * 0.9) cl.x = -SIZE * 0.9;
-    for (let pIdx = 0; pIdx < 6; pIdx++) {
-      const idx = cl.startIdx + pIdx;
-      cloudsMesh.getMatrixAt(idx, cMat4);
-      cMat4.decompose(cP, cQ, cS);
-      cP.x += cl.speed * dt * 2.5;
-      if (cP.x > SIZE * 0.95) cP.x -= SIZE * 1.8;
-      cMat4.compose(cP, cQ, cS);
-      cloudsMesh.setMatrixAt(idx, cMat4);
-    }
-  }
-  cloudsMesh.instanceMatrix.needsUpdate = true;
-
-  // Dynamic Synthesizer Music Progression
-  musicTimer -= dt;
-  if (musicTimer <= 0) {
-    musicTimer = 6.0;
-    const isCombat = (enemies.some(e => e.state === 'chase') || !!titanBoss);
-    const chords = (sunEl < 0) ? CHORDS_NIGHT : CHORDS_DAY;
-    playArpChord(chords[musicStep % chords.length], isCombat);
-    musicStep++;
-  }
-
-  // Altar Core Pulse
-  const altarCore = altarGroup.getObjectByName('altarCore');
-  if (altarCore) {
-    altarCore.rotation.y += dt * 1.2;
-    altarCore.rotation.x += dt * 0.8;
-    altarCore.position.y = 3.5 + Math.sin(gameTime * 3) * 0.25;
-  }
-
-  $('clock').textContent = `${String(Math.floor(frac * 24)).padStart(2, '0')}:${String(Math.floor(frac * 24 * 60 % 60)).padStart(2, '0')}`;
-  $('dayT').textContent = `Day ${day}`;
-}
-
-function updatePlayer(dt) {
-  const p = player;
-  if (p.dead) return;
-
-  forward.set(-Math.sin(yaw), 0, -Math.cos(yaw));
-  right.set(Math.cos(yaw), 0, -Math.sin(yaw));
-  move.set(0, 0, 0);
-
-  if (keys.KeyW) move.add(forward);
-  if (keys.KeyS) move.sub(forward);
-  if (keys.KeyD) move.add(right);
-  if (keys.KeyA) move.sub(right);
-
-  const moving = move.lengthSq() > 0;
-  if (moving) move.normalize();
-
-  p.crouch = !!keys.ControlLeft;
-  const inWater = p.pos.y < WATER - 0.4;
-  const sprint = keys.ShiftLeft && moving && p.stamina > 1 && !p.crouch && !inWater;
-  let speed = 6.2 * p.speedMult * (sprint ? 1.75 : 1) * (p.crouch ? 0.5 : 1) * (inWater ? 0.55 : 1) * (rightDown ? 0.6 : 1);
-
-  if (sprint) p.stamina = Math.max(0, p.stamina - 15 * dt);
-  else p.stamina = Math.min(100, p.stamina + 12 * dt);
-
-  // Recharge boost fuel
-  p.boostFuel = Math.min(100, p.boostFuel + 14 * dt);
-
-  const ox = p.pos.x, oz = p.pos.z;
-  p.pos.x += (move.x * speed + p.vel.x) * dt;
-  p.pos.z += (move.z * speed + p.vel.z) * dt;
-  p.vel.x *= 0.88; p.vel.z *= 0.88;
-
-  // Tree collision
-  const cx = (p.pos.x + HALF) / CELL | 0, cz = (p.pos.z + HALF) / CELL | 0;
-  for (let i = -1; i <= 1; i++) {
-    for (let j = -1; j <= 1; j++) {
-      const l = treeGrid.get(`${cx + i},${cz + j}`);
-      if (!l) continue;
-      for (const t of l) {
-        if (!t.alive) continue;
-        const dx = p.pos.x - t.x, dz = p.pos.z - t.z, d = Math.hypot(dx, dz);
-        if (d < 0.75 && d > 0.001 && p.pos.y < t.y + 3.5) {
-          p.pos.x = t.x + dx / d * 0.75; p.pos.z = t.z + dz / d * 0.75;
-        }
-      }
-    }
-  }
-
-  // Block side collisions
-  for (const b of blocks) {
-    if (Math.abs(b.x - p.pos.x) < 1.3 && Math.abs(b.z - p.pos.z) < 1.3) {
-      const top = b.y + 1, bot = b.y - 1;
-      if (top > p.pos.y + 0.7 && bot < p.pos.y + 1.7) {
-        p.pos.x = ox; p.pos.z = oz; break;
-      }
-    }
-  }
-
-  p.pos.x = clamp(p.pos.x, -HALF + 5, HALF - 5);
-  p.pos.z = clamp(p.pos.z, -HALF + 5, HALF - 5);
-
-  // Vertical physics
-  if (inWater) {
-    p.vel.y -= 6 * dt; p.vel.y *= 0.94;
-    if (keys.Space) p.vel.y = 4.0;
-    if (p.pos.y < WATER - 1.2 && !keys.Space) p.vel.y = Math.max(p.vel.y, -1);
-  } else {
-    p.vel.y -= 32 * dt;
-    if (keys.Space && p.onGround) {
-      p.vel.y = 11.5; p.onGround = false;
-      tone(320, 0.08, 'sine', 0.1, 180);
-    }
-  }
-
-  p.pos.y += p.vel.y * dt;
-  const g = groundAt(p.pos.x, p.pos.z, p.pos.y);
-  if (p.pos.y <= g) {
-    if (p.vel.y < -20) {
-      hurtPlayer((-p.vel.y - 20) * 3);
-      msg('Oof! High fall damage.', '#ff7675');
-    }
-    p.pos.y = g; p.vel.y = 0; p.onGround = true;
-  } else {
-    p.onGround = false;
-  }
-
-  // Footstep audio
-  if (moving && p.onGround) {
-    stepTimer += dt * (sprint ? 14 : 9);
-    if (stepTimer > 3.14) {
-      stepTimer = 0;
-      let surf = inWater ? 'water' : 'grass';
-      if (p.pos.y > 44) surf = 'stone';
-      playFootstep(surf);
-    }
-  }
-
-  // Hunger & Health Regen
-  p.hunger = Math.max(0, p.hunger - dt * 0.2);
-  if (p.hunger <= 0) p.hp -= dt * 1.5;
-  else if (p.hunger > 50 && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + dt * 1.4);
-  if (p.hp <= 0 && !p.dead) die();
-
-  // Blaster charge accumulation
-  if (mouseDown && HOTBAR[slot].id === 'blaster') {
-    p.chargeTime += dt;
-    $('charge-ring').style.opacity = Math.min(1, p.chargeTime * 1.5);
-    $('charge-ring').style.transform = `rotate(${p.chargeTime * 360}deg)`;
-  }
-
-  // Weapon use cooldown
-  useCd -= dt;
-  if (mouseDown && useCd <= 0 && p.chargeTime < 0.25) useItem();
-
-  // Companion drone smooth follow
-  drone.targetPos.set(p.pos.x + Math.sin(gameTime * 1.5) * 1.8, p.pos.y + 2.0 + Math.sin(gameTime * 3) * 0.25, p.pos.z + Math.cos(gameTime * 1.5) * 1.8);
-  drone.mesh.position.lerp(drone.targetPos, dt * 4);
-  drone.mesh.lookAt(p.pos.x, p.pos.y + 1, p.pos.z);
-
-  // Drone auto defense
-  drone.shootCd -= dt;
-  if (drone.shootCd <= 0) {
-    const nearbyEnemy = enemies.find(e => e.pos.distanceTo(player.pos) < 16);
-    if (nearbyEnemy) {
-      drone.shootCd = 1.4;
-      damageCreature(nearbyEnemy, 12, false, 0.5);
-      tone(800, 0.08, 'sawtooth', 0.12, -400);
-      burst(nearbyEnemy.pos, 0x00d2d3, 6, 4);
-    }
-  }
-
-  // Turret auto attacks
-  turrets.forEach(tur => {
-    tur.cd -= dt;
-    if (tur.cd <= 0) {
-      const target = enemies.find(e => e.pos.distanceTo(tur.pos) < 18) || (titanBoss && titanBoss.pos.distanceTo(tur.pos) < 24 ? titanBoss : null);
-      if (target) {
-        tur.cd = 1.3;
-        tur.head.rotation.y += 1.0;
-        damageCreature(target, 18, false, 0.8);
-        tone(700, 0.1, 'sine', 0.18, 200);
-        burst(target.pos, 0x9c88ff, 8, 4);
-      }
-    }
-  });
-
-  // Viewmodel animations & torch
-  muzzle.intensity *= 0.72;
-  vmMesh.position.z = lerp(vmMesh.position.z, -0.5, dt * 10);
-  vmMesh.rotation.x = lerp(vmMesh.rotation.x, 0, dt * 8);
-  vmMesh.material = vmMats[HOTBAR[slot].id] || vmMats.blaster;
-  vmMesh.visible = firstPerson;
-  vmMesh.position.x = 0.32 + Math.sin(p.bob) * 0.01;
-  vmMesh.position.y = -0.24 + Math.abs(Math.cos(p.bob)) * 0.015;
-
-  torch.intensity = (sunEl < 0) ? 22 + Math.sin(gameTime * 20) * 2 : 0;
-  torch.position.set(p.pos.x, p.pos.y + 1.6, p.pos.z);
-
-  playerMesh.position.set(p.pos.x, p.pos.y, p.pos.z);
-  playerMesh.rotation.y = yaw;
-  playerMesh.visible = !firstPerson;
-}
-
-function updateCreatures(dt) {
-  const night = sunEl < 0;
-  spawnTimer -= dt;
-  const cap = night ? 18 : 6 + Math.min(6, stats.days);
-
-  if (spawnTimer <= 0) {
-    spawnTimer = night ? 2.8 : 6.5;
-    if (enemies.length < cap) {
-      const pt = randomLandNear(player.pos.x, player.pos.z, 35, 85);
-      if (pt) {
-        let type = 'grunt';
-        if (night && Math.random() < 0.45) type = 'crawler';
-        else if (stats.days >= 2 && Math.random() < 0.3) type = 'brute';
-        spawnEnemy(type, pt[0], pt[1]);
-      }
-    }
-  }
-
-  // Update Hostile Enemies
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    const e = enemies[i];
-    const dx = player.pos.x - e.pos.x, dz = player.pos.z - e.pos.z, d = Math.hypot(dx, dz);
-    if (d > 150) { scene.remove(e.mesh); enemies.splice(i, 1); continue; }
-
-    // Campfire safe zone deterrence
-    const nearCampfire = campfires.some(c => c.pos.distanceTo(e.pos) < 14);
-    if (nearCampfire && !e.kb.lengthSq()) {
-      e.state = 'wander'; e.dir += 3.14;
-    }
-
-    if (d < e.type.aggro && !player.dead && !nearCampfire) e.state = 'chase';
-    else if (d > e.type.aggro * 1.5) e.state = 'wander';
-
-    let mx = 0, mz = 0, sp = e.type.speed;
-    if (e.state === 'chase') {
-      if (d > 1.8) { mx = dx / d; mz = dz / d; }
-      else {
-        e.atk -= dt;
-        if (e.atk <= 0) {
-          e.atk = 1.1;
-          hurtPlayer(e.type.dmg);
-          player.vel.addScaledVector(new THREE.Vector3(dx, 0, dz).normalize(), 4);
-        }
-      }
-      e.mesh.rotation.y = Math.atan2(dx, dz);
-    } else {
-      e.wt -= dt;
-      if (e.wt <= 0) { e.wt = 2 + Math.random() * 4; e.dir = Math.random() * 6.28; }
-      sp *= 0.35; mx = Math.sin(e.dir); mz = Math.cos(e.dir);
-      e.mesh.rotation.y = e.dir;
-    }
-
-    e.pos.x += (mx * sp + e.kb.x) * dt; e.pos.z += (mz * sp + e.kb.z) * dt;
-    e.kb.multiplyScalar(0.86);
-    e.pos.x = clamp(e.pos.x, -HALF + 5, HALF - 5); e.pos.z = clamp(e.pos.z, -HALF + 5, HALF - 5);
-    e.pos.y = Math.max(groundAt(e.pos.x, e.pos.z, e.pos.y), WATER - 0.5);
-
-    e.mesh.position.copy(e.pos);
-    e.mesh.userData.bar.scale.x = 1.24 * Math.max(0, e.hp / e.type.hp);
-    e.flash -= dt;
-    e.mesh.userData.mat.emissive.setHex(e.flash > 0 ? 0xff4040 : 0x000000);
-  }
-
-  // Update Titan Boss
-  if (titanBoss && titanBoss.hp > 0) {
-    const t = titanBoss;
-    const dx = player.pos.x - t.pos.x, dz = player.pos.z - t.pos.z, d = Math.hypot(dx, dz);
-    t.group.rotation.y = Math.atan2(dx, dz);
-
-    if (d > 6.0) {
-      t.pos.x += (dx / d) * 2.8 * dt;
-      t.pos.z += (dz / d) * 2.8 * dt;
-    }
-
-    t.atkCd -= dt;
-    if (t.atkCd <= 0) {
-      t.atkCd = 3.2;
-      if (d < 8) { // Earth Stomp
-        hurtPlayer(35);
-        screenShake = 1.0;
-        burst(t.pos, 0xff4757, 25, 8);
-        tone(140, 0.5, 'sawtooth', 0.5, -60);
-        msg('💥 TITAN SEISMIC STOMP!', '#ff4757');
-      } else { // Homing Boulder Throw
-        const pM = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8), new THREE.MeshStandardMaterial({ color: 0x2d3436 }));
-        pM.position.copy(t.pos).add(new THREE.Vector3(0, 7, 0));
-        scene.add(pM);
-        const bDir = player.pos.clone().sub(pM.position).normalize();
-        projectiles.push({ m: pM, v: bDir.multiplyScalar(35), life: 3.5, dmg: 28, isEnemy: true });
-        tone(200, 0.3, 'square', 0.3, -80);
-      }
-    }
-    t.group.position.copy(t.pos);
-  }
-
-  // Animals grazing & fleeing
-  for (const a of animals) {
-    const dx = a.pos.x - player.pos.x, dz = a.pos.z - player.pos.z, d = Math.hypot(dx, dz);
-    if (d < 8.5 && a.flee <= 0) { a.flee = 3.5; a.dir = Math.atan2(dx, dz); }
-    let sp = 0;
-    if (a.flee > 0) { a.flee -= dt; sp = 7.5; }
-    else {
-      a.wt -= dt;
-      if (a.wt <= 0) { a.wt = 2 + Math.random() * 5; a.dir = Math.random() * 6.28; a.graze = Math.random() < 0.5; }
-      sp = a.graze ? 0 : 1.7;
-    }
-    const nx = a.pos.x + Math.sin(a.dir) * sp * dt, nz = a.pos.z + Math.cos(a.dir) * sp * dt;
-    if (getHeight(nx, nz) > WATER + 0.3 && Math.abs(nx) < HALF - 5 && Math.abs(nz) < HALF - 5) {
-      a.pos.x = nx; a.pos.z = nz;
-    } else a.dir += 2;
-    a.pos.y = getHeight(a.pos.x, a.pos.z);
-    a.mesh.position.copy(a.pos); a.mesh.rotation.y = a.dir;
-    a.mesh.userData.bar.scale.x = 1.24 * (a.hp / a.maxHp);
-    a.mesh.userData.bar.visible = a.mesh.children[2].visible = a.hp < a.maxHp;
-  }
-}
-
-function updateProjectiles(dt) {
-  for (let i = projectiles.length - 1; i >= 0; i--) {
-    const p = projectiles[i];
-    p.m.position.addScaledVector(p.v, dt);
-    p.life -= dt;
-    let hit = false;
-
-    if (p.isEnemy) {
-      if (p.m.position.distanceTo(player.pos) < 1.4) {
-        hurtPlayer(p.dmg); hit = true;
-      }
-    } else {
-      // Check block/terrain hit
-      if (p.life <= 0 || p.m.position.y < getHeight(p.m.position.x, p.m.position.z)) {
-        hit = true;
-      } else {
-        // Hit creatures
-        for (const list of [enemies, animals]) {
-          for (const c of list) {
-            tmpV.set(c.pos.x, c.pos.y + 1, c.pos.z);
-            if (tmpV.distanceTo(p.m.position) < 1.4) {
-              damageCreature(c, p.dmg, p.charged, p.charged ? 2.5 : 1.0);
-              hit = true; break;
-            }
-          }
-          if (hit) break;
-        }
-        if (!hit && titanBoss && titanBoss.hp > 0) {
-          tmpV.set(titanBoss.pos.x, titanBoss.pos.y + 5, titanBoss.pos.z);
-          if (tmpV.distanceTo(p.m.position) < 4.5) {
-            damageCreature(titanBoss, p.dmg, p.charged, 1.0);
-            hit = true;
-          }
-        }
-      }
-    }
-
-    if (hit) {
-      burst(p.m.position, p.charged ? 0x00f2fe : 0xffa502, p.charged ? 24 : 8, 7);
-      scene.remove(p.m); projectiles.splice(i, 1);
-    }
-  }
-
-  // Update particles
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const q = particles[i];
-    q.life -= dt; q.v.y -= 12 * dt;
-    q.m.position.addScaledVector(q.v, dt);
-    if (q.life <= 0) { scene.remove(q.m); particles.splice(i, 1); }
-  }
-
-  // Floating Combat Numbers projection
-  for (let i = floatingTexts.length - 1; i >= 0; i--) {
-    const ft = floatingTexts[i];
-    ft.life -= dt;
-    ft.yOff += dt * 1.5;
-    const sPos = ft.pos.clone(); sPos.y += ft.yOff;
-    sPos.project(camera);
-    if (sPos.z < 1) {
-      const x = (sPos.x * 0.5 + 0.5) * innerWidth;
-      const y = (-sPos.y * 0.5 + 0.5) * innerHeight;
-      ft.el.style.left = `${x}px`;
-      ft.el.style.top = `${y}px`;
-      ft.el.style.opacity = `${ft.life / 0.75}`;
-    }
-    if (ft.life <= 0) { ft.el.remove(); floatingTexts.splice(i, 1); }
-  }
-}
-
-function updateCamera(dt) {
-  const e = eyePos().clone();
-  e.y += firstPerson ? Math.sin(player.bob * 2) * 0.04 : 0;
-
-  // Screen shake application
-  if (screenShake > 0) {
-    e.x += (Math.random() - 0.5) * screenShake * 0.4;
-    e.y += (Math.random() - 0.5) * screenShake * 0.4;
-    screenShake = Math.max(0, screenShake - dt * 2.5);
-  }
-
-  if (firstPerson) {
-    camera.position.copy(e);
-    camera.rotation.set(pitch, yaw, 0);
-  } else {
-    const f = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
-    const cp = e.clone().addScaledVector(f, -5.8).add(new THREE.Vector3(Math.cos(yaw) * 0.85, 0.45, -Math.sin(yaw) * 0.85));
-    cp.y = Math.max(cp.y, getHeight(cp.x, cp.z) + 0.6);
-    camera.position.copy(cp);
-    camera.lookAt(e.clone().addScaledVector(f, 10));
-  }
-}
-
-function updateHUD(dt) {
-  vignette = Math.max(0, vignette - dt * 1.6);
-  $('vignette').style.opacity = vignette * 0.85 + (player.hp < 25 ? 0.35 + Math.sin(gameTime * 7) * 0.15 : 0);
-
-  hudTimer -= dt;
-  if (hudTimer > 0) return;
-  hudTimer = 0.08;
-
-  const p = player;
-  $('hpbar').firstElementChild.style.width = `${(p.hp / p.maxHp) * 100}%`;
-  $('hpT').textContent = `${Math.ceil(p.hp)}/${p.maxHp}`;
-  $('stbar').firstElementChild.style.width = `${p.stamina}%`;
-  $('stT').textContent = `${Math.ceil(p.stamina)}%`;
-  $('hubar').firstElementChild.style.width = `${p.hunger}%`;
-  $('huT').textContent = `${Math.ceil(p.hunger)}%`;
-  $('boostbar').firstElementChild.style.width = `${p.boostFuel}%`;
-  $('boostT').textContent = p.boostFuel > 15 ? 'Ready' : 'Recharging';
-
-  $('xpbar').firstElementChild.style.width = `${(p.xp / (p.level * 100)) * 100}%`;
-  $('lvT').textContent = `Level ${p.level}`;
-  $('xpT').textContent = `${p.xp}/${p.level * 100} XP`;
-
-  $('posT').textContent = `${p.pos.x | 0}, ${p.pos.y | 0}, ${p.pos.z | 0}`;
-  $('statsT').textContent = `☠ ${stats.kills} Kills · 👑 ${stats.bosses} Boss · 🧱 ${stats.blocks} Built`;
-
-  // Update Compass Tape
-  const deg = (((yaw * 180) / Math.PI) % 360 + 360) % 360;
-  $('compass-tape').style.transform = `translateX(${-(deg / 360) * 180}px)`;
-
-  // Dynamic Context Hint
-  let hint = '';
-  if (player.pos.distanceTo(SUMMIT_ALTAR_POS) < 12) {
-    hint = titanBoss ? '⚔ Vanquish The Ancient Titan!' : '[E] Awaken The Ancient Titan at Summit Altar';
-  } else {
-    const nearCamp = campfires.find(c => c.pos.distanceTo(player.pos) < 4.5);
-    const nearChest = chests.find(c => c.pos.distanceTo(player.pos) < 4.5);
-    if (nearCamp) hint = '[E] Cook Raw Meat on Campfire (Restores High HP)';
-    else if (nearChest) hint = '[E] Access Storage Crate';
-    else {
-      const it = HOTBAR[slot].id;
-      if (it === 'tool') {
-        const h = nodeHit(4.2);
-        if (h) hint = h.kind === 'tree' ? `Chop Tree (${h.node.hp} hits)` : h.kind === 'rock' ? `Mine Rock (${h.node.hp} hits)` : `Mine Crystal (${h.node.hp} hits)`;
-      } else if (it === 'build') {
-        hint = `LMB Place ${BUILD_TYPES[buildTypeIdx].name} · RMB Cycle Type`;
-      }
-    }
-  }
-  $('hint').style.display = hint ? 'block' : 'none';
-  $('hint').textContent = hint;
-
-  drawMinimap();
-}
-
-const clock = new THREE.Clock();
-function animate() {
-  requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.05);
-
-  frames++; fpsTime += dt;
-  if (fpsTime >= 1) { $('fps').textContent = `${frames} FPS`; frames = 0; fpsTime = 0; }
-
-  const paused = !locked;
-  if (!paused) {
-    updateEnvironment(dt);
-    updatePlayer(dt);
-    updateCreatures(dt);
-    updateProjectiles(dt);
-  }
-  updateCamera(dt);
-  updateHUD(dt);
-  renderer.render(scene, camera);
-}
-
-/* ============================================================ 16. BOOT ENGINE */
-applyRenderSettings();
-buildHotbar();
-checkQuests();
-updateEnvironment(0);
-updateCamera(0);
-
-msg('🌟 Aetheria 2.0 loaded: Next-Level 3D Survival.', '#7fd0ff');
-msg('Summit Altar waits atop the mountain. Ready your gear.', '#ffd06b');
-animate();
-</script>
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>
