@@ -23,6 +23,7 @@ export class Player {
     this.isGrounded = false;
     this.isSwimming = false;
     this.isThrusterActive = false;
+    this.isGroundSlamming = false;
 
     // Stats
     this.health = CONFIG.PLAYER.MAX_HEALTH;
@@ -80,7 +81,7 @@ export class Player {
     this.heal(healAmt);
   }
 
-  update(dt, input, cameraController, terrain) {
+  update(dt, input, cameraController, terrain, particleEngine = null, onGroundSlam = null) {
     // 1. Movement Inputs
     const fwd = cameraController.getForwardVector();
     const right = cameraController.getRightVector();
@@ -93,7 +94,6 @@ export class Player {
 
     if (moveDir.lengthSq() > 0.001) {
       moveDir.normalize();
-      // Rotate model towards movement direction smoothly
       const targetAngle = Math.atan2(moveDir.x, moveDir.z);
       this.model.group.rotation.y = THREE.MathUtils.lerp(
         this.model.group.rotation.y,
@@ -129,8 +129,15 @@ export class Player {
       }
       this.isGrounded = false;
       this.isThrusterActive = false;
+      this.isGroundSlamming = false;
     } else {
       if (this.position.y <= groundH + 0.1) {
+        // Landing
+        if (this.isGroundSlamming) {
+          this.isGroundSlamming = false;
+          onGroundSlam?.(this.position.clone());
+        }
+
         this.position.y = groundH;
         this.velocity.y = 0;
         this.isGrounded = true;
@@ -145,12 +152,26 @@ export class Player {
         // Airborne
         this.isGrounded = false;
 
-        // Anti-Grav Thruster Boost (holding Space in air)
-        if (input.isKeyDown('Space') && this.stamina > 4) {
+        // Aerial Ground Slam (press Ctrl or C while airborne)
+        if ((input.wasKeyJustPressed('ControlLeft') || input.wasKeyJustPressed('KeyC')) && !this.isGroundSlamming && this.stamina >= 20) {
+          this.isGroundSlamming = true;
+          this.velocity.y = -38.0;
+          this.stamina -= 20;
+          cameraController.addShake(0.08);
+        } else if (this.isGroundSlamming) {
+          this.velocity.y = -42.0;
+        } else if (input.isKeyDown('Space') && this.stamina > 4) {
+          // Anti-Grav Thruster Boost
           this.isThrusterActive = true;
           this.velocity.y = Math.min(18.0, this.velocity.y + CONFIG.PLAYER.THRUSTER_FORCE * dt * 2.0);
           this.stamina = Math.max(0, this.stamina - dt * 32.0);
           cameraController.addShake(0.015);
+
+          // Emit jetpack plume
+          if (particleEngine) {
+            const back = cameraController.getForwardVector().multiplyScalar(-1);
+            particleEngine.spawnJetpackPlume(this.position.clone().add(new THREE.Vector3(0, 1.2, 0)), back);
+          }
         } else {
           this.isThrusterActive = false;
           this.velocity.y -= CONFIG.PLAYER.GRAVITY * dt;
@@ -163,8 +184,11 @@ export class Player {
     this.position.y += this.velocity.y * dt;
     this.position.z += this.velocity.z * dt;
 
-    // Prevent sinking into terrain
     if (this.position.y < groundH) {
+      if (this.isGroundSlamming) {
+        this.isGroundSlamming = false;
+        onGroundSlam?.(this.position.clone());
+      }
       this.position.y = groundH;
       this.velocity.y = 0;
       this.isGrounded = true;

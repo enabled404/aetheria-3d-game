@@ -3,13 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AETHERIA 3.0 — S-Tier 3D Open World RPG</title>
+  <title>AETHERIA 3.5 — S-Tier 3D Open World RPG</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #050811; font-family: 'Segoe UI', -apple-system, Roboto, sans-serif; color: #f0f4fc; user-select: none; }
     canvas#game-canvas { display: block; width: 100%; height: 100%; }
 
     #ui-overlay { position: fixed; inset: 0; pointer-events: none; }
+
+    /* Damage Vignette & Speed Lines */
+    #damage-vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      box-shadow: inset 0 0 120px rgba(255, 20, 50, 0.9);
+      opacity: 0;
+      transition: opacity 0.1s ease-out;
+      z-index: 10;
+    }
+    #speed-lines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9;
+    }
 
     /* Glassmorphism Panels */
     .glass-panel {
@@ -57,6 +74,21 @@
       height: 100%;
       background: #00ffff;
       box-shadow: 0 0 8px #00ffff;
+    }
+
+    /* Mini-Radar */
+    #mini-radar-wrap {
+      position: absolute;
+      top: 14px;
+      left: 20px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      overflow: hidden;
+      box-shadow: 0 0 18px rgba(0, 229, 255, 0.35);
+      border: 2px solid rgba(0, 229, 255, 0.5);
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
     }
 
     /* Vitals Status Bars */
@@ -136,6 +168,44 @@
       box-shadow: 0 0 12px #00ffff;
       pointer-events: none;
       transition: transform 0.05s linear;
+    }
+
+    /* Contextual 3D Prompt */
+    #context-prompt {
+      position: absolute;
+      top: 55%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(6, 12, 22, 0.85);
+      border: 1px solid #00e5ff;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #00ffff;
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    /* Floating Toast */
+    #hud-toast {
+      position: absolute;
+      top: 68px;
+      left: 50%;
+      transform: translate(-50%, -10px);
+      background: rgba(14, 24, 44, 0.9);
+      border: 1px solid #20e386;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #20e386;
+      box-shadow: 0 0 16px rgba(32, 227, 134, 0.4);
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.1, 0.9, 0.2, 1);
+      pointer-events: none;
     }
 
     /* Hotbar */
@@ -294,6 +364,8 @@
 </head>
 <body>
 
+  <div id="damage-vignette"></div>
+  <canvas id="speed-lines"></canvas>
   <canvas id="game-canvas"></canvas>
 
   <div id="ui-overlay">
@@ -311,6 +383,17 @@
         <span>W</span><span>•</span><span>NW</span><span>•</span>
       </div>
     </div>
+
+    <!-- Mini-Radar -->
+    <div id="mini-radar-wrap">
+      <canvas id="mini-radar-canvas" width="120" height="120"></canvas>
+    </div>
+
+    <!-- Contextual Prompt -->
+    <div id="context-prompt">[E] Interact</div>
+
+    <!-- Toast Notification -->
+    <div id="hud-toast">💾 Game Saved</div>
 
     <!-- Boss Card -->
     <div id="boss-card" class="glass-panel">
@@ -389,11 +472,14 @@
     <div id="help-guide" class="glass-panel">
       <div><kbd>WASD</kbd> Move • <kbd>Shift</kbd> Sprint</div>
       <div><kbd>Space</kbd> Jump / <kbd>Hold in Air</kbd> Thruster Boost</div>
+      <div><kbd>Ctrl</kbd> *(in air)* **Aerial Ground Slam**</div>
+      <div><kbd>Q</kbd> **Temporal Stasis Bubble**</div>
       <div><kbd>LMB</kbd> Attack / <kbd>Hold</kbd> Charge Blaster</div>
       <div><kbd>RMB</kbd> Parry Shield (Katana)</div>
       <div><kbd>E</kbd> Interact with NPC / Summit Altar</div>
+      <div><kbd>F5</kbd> Quick Save • <kbd>F9</kbd> Quick Load</div>
       <div><kbd>Tab</kbd> Crafting • <kbd>M</kbd> Full Island Map</div>
-      <div><kbd>V</kbd> Toggle 1st / 3rd Person Camera</div>
+      <div><kbd>V</kbd> Toggle 1st / 3rd Person View</div>
     </div>
   </div>
 

@@ -15,6 +15,9 @@ export class Enemy {
     this.cooldownTimer = 0;
     this.isDead = false;
 
+    this.isFrozen = false;
+    this.freezeTimer = 0;
+
     this.group = new THREE.Group();
     this.group.position.copy(pos);
     this.buildMesh();
@@ -22,11 +25,12 @@ export class Enemy {
   }
 
   buildMesh() {
-    const mat = new THREE.MeshStandardMaterial({
+    this.mat = new THREE.MeshStandardMaterial({
       color: (this.type === 'brute') ? 0x1f1724 : (this.type === 'stalker' ? 0x2b4429 : 0x242d3d),
       roughness: 0.7,
       metalness: 0.3
     });
+    this.origColor = this.mat.color.getHex();
 
     const eyeMat = new THREE.MeshBasicMaterial({
       color: (this.type === 'brute') ? 0xff2200 : (this.type === 'stalker' ? 0xffee00 : 0x00e5ff)
@@ -35,7 +39,7 @@ export class Enemy {
     const s = (this.type === 'brute') ? 1.6 : (this.type === 'stalker' ? 0.9 : 1.1);
 
     // Body
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.7 * s, 1.1 * s, 0.5 * s), mat);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.7 * s, 1.1 * s, 0.5 * s), this.mat);
     body.position.y = 0.8 * s;
     body.castShadow = true;
     this.group.add(body);
@@ -46,11 +50,11 @@ export class Enemy {
     this.group.add(eye);
 
     // Limbs
-    this.lArm = new THREE.Mesh(new THREE.BoxGeometry(0.22 * s, 0.8 * s, 0.22 * s), mat);
+    this.lArm = new THREE.Mesh(new THREE.BoxGeometry(0.22 * s, 0.8 * s, 0.22 * s), this.mat);
     this.lArm.position.set(-0.48 * s, 0.7 * s, 0);
     this.group.add(this.lArm);
 
-    this.rArm = new THREE.Mesh(new THREE.BoxGeometry(0.22 * s, 0.8 * s, 0.22 * s), mat);
+    this.rArm = new THREE.Mesh(new THREE.BoxGeometry(0.22 * s, 0.8 * s, 0.22 * s), this.mat);
     this.rArm.position.set(0.48 * s, 0.7 * s, 0);
     this.group.add(this.rArm);
   }
@@ -67,6 +71,17 @@ export class Enemy {
 
   update(dt, playerPosition, onAttackPlayer) {
     if (this.isDead) return;
+
+    // Handle Chrono Stasis Freeze
+    if (this.isFrozen) {
+      this.freezeTimer -= dt;
+      this.mat.color.setHex(0x00e5ff);
+      if (this.freezeTimer <= 0) {
+        this.isFrozen = false;
+        this.mat.color.setHex(this.origColor);
+      }
+      return; // Freeze movement and attack
+    }
 
     if (this.cooldownTimer > 0) this.cooldownTimer -= dt;
 

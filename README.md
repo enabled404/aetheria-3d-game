@@ -1,4 +1,4 @@
-# Aetheria 3.0 — The Modular S-Tier 3D Open-World RPG
+# Aetheria 3.5 — The Ultimate S-Tier 3D Open-World RPG
 
 A next-generation, high-performance 3D open-world survival RPG built with Three.js, Vite, and the Web Audio / Speech API.
 
@@ -6,56 +6,40 @@ A next-generation, high-performance 3D open-world survival RPG built with Three.
 
 ---
 
-## 🌟 What Makes Aetheria 3.0 an S-Tier Breakthrough
+## 🌟 What Makes Aetheria 3.5 an S-Tier Breakthrough
 
-### 1. 👤 Complete Procedural Characters with Anatomical Faces
-- **Facial Geometry**: Procedurally sculpted skull, tapered jawline, cheekbones, defined 3D nose with bridge and nostrils, defined lips/mouth with oral cavity, and articulated brow.
-- **Expressive Eyes & Gaze Tracking**: Twin ocular spheres with white sclera, limbal rings, radial iris striations (customized per character), black pupils, and cornea specular reflection.
-- **Natural Blinking**: Stochastic eye blinking cycle (every 2.5–5 seconds) with realistic fast-close and smooth-open eyelid curves.
-- **Dynamic Lip-Sync**: Articulated jaw and mouth shapes (phonemes) that animate in real time synchronized with spoken character voice lines!
-- **Distinct Stylized Personas & Silhouettes**:
-  - **The Explorer (Player)**: Sleek environmental explorer suit, gauntlet forearm emitter, windswept dark hair, and twin-thruster anti-grav jetpack.
-  - **Lyra, The Chrono-Cartographer**: Scholarly explorer robes, twin glowing cyan chronomantic goggles on her forehead, and a floating orbiting Astrolabe drone.
-  - **Commander Thorne, The Iron Vanguard**: Heavy battle-scarred plate armor, reinforced pauldron, and a red tactical cybernetic ocular implant.
-  - **Kaelen, The Shadow Alchemist**: Deep draped cowl casting soft atmospheric shadows over his face, with an alchemical potion bandolier.
-  - **The Ancient Titan (World Boss)**: Massive colossal stone titan with glowing magma core, burning runic eyes, and earth-shattering attacks.
+### 1. ✨ High-Performance Particle Engine
+- **Combat Particles**: Fiery yellow-orange sparks on melee strikes, electric cyan sparks on parries, and magenta explosions on charged plasma impacts.
+- **Thruster Plumes**: Dynamic cyan and orange flame plumes with drifting smoke particles when using the anti-grav jetpack.
+- **Atmospheric Particles**: Golden ambient sun motes in daylight, glowing bioluminescent spores in the forest, and mountain summit snow flurries.
+- **Debris Physics**: Rock fragments and dust shockwaves erupting from titan stomps and player ground slams.
 
-### 2. 🎭 Full In-Browser Voiced Dialogue Trees
-- Every NPC possesses a rich backstory, distinct speaking personality, and **full voice acting** synthesized in real-time via the browser's Web Speech API and Web Audio formant shaping:
-  - **Lyra**: Energetic, inquisitive cadence, guiding the player through island anomalies and ancient monoliths.
-  - **Commander Thorne**: Low, gritty, authoritative battle veteran cadence, offering combat tips and bounties.
-  - **Kaelen**: Whispering, resonant, melodic cadence, trading crystal reagents and revealing the Titan's vulnerabilities.
-- Interactive RPG dialogue modal with character portraits, typewriter text, and branching narrative choices.
+### 2. ⏳ Chrono-Gauntlet Abilities & Combat Polish
+- **Temporal Stasis Bubble (<kbd>Q</kbd>)**: Cast a shimmering chronomantic bubble (9m radius) that freezes enemies and incoming magma boulders in mid-air for 4.5 seconds.
+- **Aerial Ground Slam (<kbd>Ctrl</kbd> / <kbd>C</kbd> in air)**: Accelerate downward into an explosive ground slam, knocking back and dealing heavy AOE damage to surrounding monsters.
+- **Visceral Hit-Stop**: 45ms micro-pause and camera impact zoom on critical strikes, charged blaster hits, and parries.
+- **Damage Vignette & Speed Lines**: Screen edge red pulse when taking damage and peripheral motion streaks during sprint and jetpack boosts.
 
-### 3. 🤸 Fluid Skeletal Animation & Multi-Stage Combat
-- Full multi-joint humanoid bone hierarchy (Pelvis, Spine, Chest, Neck, Head, Clavicles, Shoulders, Elbows, Wrists, Hands, Hips, Knees, Ankles, Feet).
-- Smooth state blending:
-  - **Idle**: Rhythmic breathing cycle and subtle weight shifts.
-  - **Walk / Run / Sprint**: Dynamic bipedal stride with pelvic roll, forward athletic lean, and wind trail particle effects.
-  - **Jump**: Takeoff anticipation crouch, airborne hang-time, and compression landing shock.
-  - **Anti-Grav Jetpack**: Hold <kbd>Space</kbd> while airborne to fire vertical rocket thrusters with cyan particle trails.
-  - **3-Hit Katana Combo**: Horizon Slash -> Rising Cross Cut -> 360 Cyclone Whirlwind Finisher with glowing ribbon trails and screen tremor.
-  - **Parry Shield**: Hold <kbd>RMB</kbd> to raise an energy deflection barrier that stuns enemies and negates incoming damage.
-  - **Dual-Mode Plasma Blaster**: Click for rapid energy bolts; **hold <kbd>LMB</kbd>** to charge an unstable Singularity Orb that causes a devastating explosive shockwave.
-  - **3D Bouncing Damage Numbers**: Pop-up RPG combat indicators with critical hit multipliers and color coding.
+### 3. 🧭 Mini-Radar & 3D Contextual Prompts
+- **HUD Mini-Radar**: Real-time rotating radar display in the top-left corner tracking player orientation, nearby hostiles (red), friendly NPCs (cyan), and the Summit Altar (gold).
+- **Contextual 3D Prompts**: Smooth floating indicators (`[E] Speak with Lyra`, `[E] Awaken Titan`, `[E] Cook Food`, etc.) when approaching interactive objects.
 
-### 4. 🌍 Vast Multi-Biome Terrain & Advanced Shaders
-- Multi-octave Simplex / Perlin fBm procedural island with radial ocean falloff and the central mountain peak.
-- Custom terrain slope splatting shader blending golden beach sand, rolling lush grass, sheer cliff rock, and mountain snow.
-- Gerstner wave ocean simulation with animated swells, shoreline foam, and specular sun glints.
-- Dynamic celestial dome with day/night cycle, Rayleigh/Mie atmospheric scattering, volumetric cloud decks, and starlit nights.
+### 4. 💾 State Persistence (Auto-Save & Quick-Save)
+- Automatic background saving every 60 seconds with toast notifications.
+- <kbd>F5</kbd> Quick Save & <kbd>F9</kbd> Quick Load persisting player stats, position, inventory, placed structures, and boss state.
 
-### 5. 🧱 Deployable Base Fortifications
-- Snapped voxel construction: Fortified Wood, Obsidian Masonry, Crystal Forcefield.
-- **Cooking Campfire**: Wards off nocturnal predators, emits warm point light, and cooks raw meat into **Roasted Steaks** (<kbd>E</kbd>).
-- **Storage Crate**: Persistent resource storage.
-- **Crystal Defense Turret**: Automated perimeter sentinel with 360° target tracking and laser bolts.
+### 5. 👤 Complete Procedural Characters & Voiced Personas
+- Sculpted facial anatomy with jawline, cheekbones, 3D nose, lips, and oral cavity.
+- Articulated eyes with stochastic blinking (2.5–5s cycle) and gaze tracking.
+- Dynamic phonetic lip-syncing synchronized with spoken dialogue.
+- **Lyra, Chrono-Cartographer**: Energetic scholar guiding exploration.
+- **Commander Thorne, Iron Vanguard**: Battle veteran offering combat instruction and bounties.
+- **Kaelen, Shadow Alchemist**: Enigmatic wanderer trading crystal reagents and brewing elixirs.
+- **The Ancient Titan**: Colossal mountain demigod with magma core and earth-shattering attacks.
 
-### 6. 🎶 Dynamic Procedural Soundtrack
-- Generative Web Audio synthesizer:
-  - **Day**: Tranquil, ethereal major 7th chord progressions.
-  - **Night**: Atmospheric, mysterious minor tension chords.
-  - **Boss Encounter**: Driving, urgent battle pulse.
+### 6. 🎶 Dynamic Synthesizer Percussion & Soundscape
+- Web Audio procedural drum machine (kick, snare, hi-hats) accelerating during boss battles.
+- Daytime ethereal major 7th pads, nighttime mystery chords, and surface-aware footstep audio.
 
 ---
 
@@ -67,9 +51,12 @@ A next-generation, high-performance 3D open-world survival RPG built with Three.
 | <kbd>Shift</kbd> | Sprint (consumes stamina) |
 | <kbd>Space</kbd> | Jump / Swim Upward |
 | <kbd>Space</kbd> *(hold in air)* | **Anti-Grav Thruster Jetpack Boost** |
+| <kbd>Ctrl</kbd> / <kbd>C</kbd> *(in air)* | **Aerial Ground Slam** |
+| <kbd>Q</kbd> | **Temporal Stasis Bubble** |
 | <kbd>LMB</kbd> | Attack / **Hold to Charge Mega-Blaster** |
 | <kbd>RMB</kbd> | **Parry Shield** (Katana) / Deflect |
 | <kbd>E</kbd> | **Interact** (Talk to NPCs, Awaken Summit Titan, Cook at Campfire) |
+| <kbd>F5</kbd> / <kbd>F9</kbd> | **Quick Save / Quick Load** |
 | <kbd>Tab</kbd> | **Tech Forge Crafting Menu** |
 | <kbd>M</kbd> | **Toggle Full Topographic Island Map** |
 | <kbd>V</kbd> | Toggle 1st / 3rd Person Camera View |
@@ -79,7 +66,6 @@ A next-generation, high-performance 3D open-world survival RPG built with Three.
 
 ## 🛠️ Development & Architecture
 
-Built with modern ES modules and Vite:
 ```bash
 # Install dependencies
 npm install
