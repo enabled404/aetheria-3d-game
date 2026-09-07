@@ -21,17 +21,6 @@ export class HUD {
     this.vignette = document.getElementById('damage-vignette');
     this.vignetteOpacity = 0;
 
-    this.speedLines = document.getElementById('speed-lines');
-    this.speedLinesCtx = this.speedLines?.getContext('2d');
-    if (this.speedLines) {
-      this.speedLines.width = window.innerWidth;
-      this.speedLines.height = window.innerHeight;
-      window.addEventListener('resize', () => {
-        this.speedLines.width = window.innerWidth;
-        this.speedLines.height = window.innerHeight;
-      });
-    }
-
     this.toastElem = document.getElementById('hud-toast');
     this.toastTimer = 0;
 
@@ -124,31 +113,7 @@ export class HUD {
       }
     }
 
-    // 6. Speed Lines Canvas
-    if (this.speedLinesCtx) {
-      const ctx = this.speedLinesCtx;
-      const w = this.speedLines.width;
-      const h = this.speedLines.height;
-      ctx.clearRect(0, 0, w, h);
-
-      if (isSprinting || player.isThrusterActive) {
-        ctx.strokeStyle = 'rgba(0, 229, 255, 0.25)';
-        ctx.lineWidth = 1.5;
-        const cx = w / 2;
-        const cy = h / 2;
-        for (let i = 0; i < 24; i++) {
-          const ang = Math.random() * Math.PI * 2;
-          const r1 = Math.min(w, h) * 0.38 + Math.random() * 80;
-          const r2 = r1 + 60 + Math.random() * 80;
-          ctx.beginPath();
-          ctx.moveTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1);
-          ctx.lineTo(cx + Math.cos(ang) * r2, cy + Math.sin(ang) * r2);
-          ctx.stroke();
-        }
-      }
-    }
-
-    // 7. Mini-Radar
+    // 6. Mini-Radar (clean, accurate orientation)
     if (this.radarCtx && this.radarCanvas) {
       this.renderMiniRadar(player.position, enemies, npcs, bossTitan, yaw);
     }
@@ -166,8 +131,8 @@ export class HUD {
     ctx.clearRect(0, 0, w, h);
 
     // Background circle
-    ctx.fillStyle = 'rgba(6, 12, 22, 0.75)';
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
+    ctx.fillStyle = 'rgba(6, 12, 22, 0.8)';
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
@@ -175,7 +140,7 @@ export class HUD {
     ctx.stroke();
 
     // Range rings
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.18)';
     ctx.beginPath();
     ctx.arc(cx, cy, radius * 0.5, 0, Math.PI * 2);
     ctx.stroke();
@@ -185,9 +150,9 @@ export class HUD {
       const dx = worldPos.x - playerPos.x;
       const dz = worldPos.z - playerPos.z;
 
-      // Rotate by player yaw so radar heads forward
-      const rx = dx * Math.cos(yaw) - dz * Math.sin(yaw);
-      const rz = dx * Math.sin(yaw) + dz * Math.cos(yaw);
+      // Rotate by player yaw so radar forward matches view
+      const rx = dx * Math.cos(-yaw) - dz * Math.sin(-yaw);
+      const rz = dx * Math.sin(-yaw) + dz * Math.cos(-yaw);
 
       const px = cx + (rx / radarRange) * (radius - 6);
       const py = cy + (rz / radarRange) * (radius - 6);
@@ -200,7 +165,7 @@ export class HUD {
       if (b.dist < radarRange) {
         ctx.fillStyle = '#ffaa00';
         ctx.beginPath();
-        ctx.arc(b.px, b.py, 4.5, 0, Math.PI * 2);
+        ctx.arc(b.px, b.py, 5, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -211,7 +176,7 @@ export class HUD {
       if (n.dist < radarRange) {
         ctx.fillStyle = npc.color || '#00ffff';
         ctx.beginPath();
-        ctx.arc(n.px, n.py, 3.5, 0, Math.PI * 2);
+        ctx.arc(n.px, n.py, 4, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -223,7 +188,7 @@ export class HUD {
       if (e.dist < radarRange) {
         ctx.fillStyle = '#ff3344';
         ctx.beginPath();
-        ctx.arc(e.px, e.py, 3.5, 0, Math.PI * 2);
+        ctx.arc(e.px, e.py, 4, 0, Math.PI * 2);
         ctx.fill();
       }
     }

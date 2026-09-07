@@ -100,27 +100,44 @@ export class Terrain {
     }
     geom.computeVertexNormals();
 
-    // Vertex Colors for multi-biome slope blending
+    // High-fidelity natural biome slope colors
     const colors = new Float32Array(pos.count * 3);
     const normals = geom.attributes.normal;
 
-    const sandColor = new THREE.Color(0xd4b886);
-    const grassColor = new THREE.Color(0x386b2e);
-    const rockColor = new THREE.Color(0x565355);
-    const snowColor = new THREE.Color(0xf0f5ff);
+    const sandColor = new THREE.Color(0xd8bf8a);
+    const wetSandColor = new THREE.Color(0xa38c5b);
+    const grassColor = new THREE.Color(0x4a7c36);
+    const grassHighlight = new THREE.Color(0x5c964a);
+    const rockColor = new THREE.Color(0x504d52);
+    const snowColor = new THREE.Color(0xedf3fc);
 
     for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
       const y = pos.getY(i);
+      const z = pos.getZ(i);
       const ny = normals.getY(i); // 1 = flat, 0 = vertical cliff
       const slope = 1.0 - ny;
 
-      let c = grassColor.clone();
-      if (y < 1.8) {
-        c.lerp(sandColor, Math.max(0, 1.0 - y / 1.8));
-      } else if (y > 32.0 && slope < 0.35) {
-        c.lerp(snowColor, Math.min(1.0, (y - 32.0) / 12.0));
-      } else if (slope > 0.38) {
-        c.lerp(rockColor, Math.min(1.0, (slope - 0.38) / 0.3));
+      // Micro-variation noise for organic surface texture
+      const microNoise = (Math.sin(x * 0.4) * Math.cos(z * 0.4)) * 0.08;
+
+      let c = grassColor.clone().lerp(grassHighlight, 0.5 + microNoise);
+
+      if (y < 0.6) {
+        // Wet sand under/at water line
+        c = wetSandColor.clone();
+      } else if (y < 2.5) {
+        // Shoreline beach sand
+        const t = Math.max(0, (y - 0.6) / 1.9);
+        c = sandColor.clone().lerp(grassColor, t);
+      } else if (y > 30.0 && slope < 0.38) {
+        // Mountain snow cap
+        const t = Math.min(1.0, (y - 30.0) / 10.0);
+        c.lerp(snowColor, t);
+      } else if (slope > 0.32) {
+        // Rocky cliffs and steep inclines
+        const t = Math.min(1.0, (slope - 0.32) / 0.25);
+        c.lerp(rockColor, t);
       }
 
       colors[i * 3 + 0] = c.r;
@@ -132,8 +149,8 @@ export class Terrain {
 
     const mat = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.85,
-      metalness: 0.05,
+      roughness: 0.8,
+      metalness: 0.08,
       flatShading: false
     });
 
@@ -167,5 +184,16 @@ export class Terrain {
     const hx1 = THREE.MathUtils.lerp(h01, h11, fx);
 
     return THREE.MathUtils.lerp(hx0, hx1, fz);
+  }
+
+  getNormalAt(x, z) {
+    const delta = 0.5;
+    const hL = this.getHeightAt(x - delta, z);
+    const hR = this.getHeightAt(x + delta, z);
+    const hD = this.getHeightAt(x, z - delta);
+    const hU = this.getHeightAt(x, z + delta);
+
+    const normal = new THREE.Vector3(hL - hR, 2.0 * delta, hD - hU).normalize();
+    return normal;
   }
 }

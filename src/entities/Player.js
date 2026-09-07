@@ -9,8 +9,8 @@ export class Player {
     this.model = new HumanoidModel({
       type: 'player',
       irisTexture: assetManager.textures.irisBlue,
-      armorColor: 0x141f32,
-      accentColor: 0x00e5ff
+      armorColor: 0x223249,
+      accentColor: 0x00ffff
     });
     this.scene.add(this.model.group);
 
@@ -20,6 +20,7 @@ export class Player {
     this.position.set(0, 15, 60);
 
     this.velocity = new THREE.Vector3();
+    this.targetVelocity = new THREE.Vector3();
     this.isGrounded = false;
     this.isSwimming = false;
     this.isThrusterActive = false;
@@ -61,7 +62,7 @@ export class Player {
       this.nextLevelXp = Math.floor(this.nextLevelXp * 1.5);
       this.maxHealth += 10;
       this.health = this.maxHealth;
-      return true; // leveled up
+      return true;
     }
     return false;
   }
@@ -82,7 +83,7 @@ export class Player {
   }
 
   update(dt, input, cameraController, terrain, particleEngine = null, onGroundSlam = null) {
-    // 1. Movement Inputs
+    // 1. Movement Inputs from Camera
     const fwd = cameraController.getForwardVector();
     const right = cameraController.getRightVector();
 
@@ -94,33 +95,47 @@ export class Player {
 
     if (moveDir.lengthSq() > 0.001) {
       moveDir.normalize();
+      // Rotate character model to face moving direction
       const targetAngle = Math.atan2(moveDir.x, moveDir.z);
       this.model.group.rotation.y = THREE.MathUtils.lerp(
         this.model.group.rotation.y,
         targetAngle,
-        Math.min(1.0, dt * 14.0)
+        Math.min(1.0, dt * 16.0)
       );
     }
 
-    // 2. Sprint / Run Speeds
+    // 2. Sprint & Speeds
     const isSprinting = input.isKeyDown('ShiftLeft') && this.stamina > 5 && moveDir.lengthSq() > 0.001;
-    let speed = CONFIG.PLAYER.WALK_SPEED;
+    let targetSpeed = CONFIG.PLAYER.WALK_SPEED;
     if (isSprinting) {
-      speed = CONFIG.PLAYER.SPRINT_SPEED;
+      targetSpeed = CONFIG.PLAYER.SPRINT_SPEED;
       this.stamina = Math.max(0, this.stamina - dt * 18.0);
     } else {
-      this.stamina = Math.min(this.maxStamina, this.stamina + dt * 12.0);
+      this.stamina = Math.min(this.maxStamina, this.stamina + dt * 14.0);
     }
 
     // Hunger drain
-    this.hunger = Math.max(0, this.hunger - dt * 0.15);
+    this.hunger = Math.max(0, this.hunger - dt * 0.12);
 
-    this.velocity.x = moveDir.x * speed;
-    this.velocity.z = moveDir.z * speed;
+    // Smooth momentum inertia (acceleration and friction)
+    const accelRate = this.isGrounded ? 16.0 : 6.0;
+    this.targetVelocity.set(moveDir.x * targetSpeed, 0, moveDir.z * targetSpeed);
+    this.velocity.x = THREE.MathUtils.lerp(this.velocity.x, this.targetVelocity.x, Math.min(1.0, dt * accelRate));
+    this.velocity.z = THREE.MathUtils.lerp(this.velocity.z, this.targetVelocity.z, Math.min(1.0, dt * accelRate));
 
-    // 3. Gravity & Jumps
+    // 3. Terrain Slope Physics
     const groundH = terrain.getHeightAt(this.position.x, this.position.z);
-    this.isSwimming = this.position.y < CONFIG.WORLD.WATER_LEVEL + 0.4;
+    const normal = terrain.getNormalAt?.(this.position.x, this.position.z) || new THREE.Vector3(0, 1, 0);
+
+    // Steep cliff check (slope > 55 deg)
+    if (this.isGrounded && normal.y < 0.55) {
+      // Slide downhill along slope normal
+      this.velocity.x += normal.x * 14.0 * dt;
+      this.velocity.z += normal.z * 14.0 * dt;
+    }
+
+    // 4. Gravity, Jumps & Swimming
+    this.isSwimming = this.position.y < CONFIG.WORLD.WATER_LEVEL + 0.35;
 
     if (this.isSwimming) {
       this.velocity.y = 0;
@@ -131,14 +146,14 @@ export class Player {
       this.isThrusterActive = false;
       this.isGroundSlamming = false;
     } else {
-      if (this.position.y <= groundH + 0.1) {
-        // Landing
+      if (this.position.y <= groundH + 0.15) {
+        // Landed on ground
         if (this.isGroundSlamming) {
           this.isGroundSlamming = false;
           onGroundSlam?.(this.position.clone());
         }
 
-        this.position.y = groundH;
+        this.position.y = THREE.MathUtils.lerp(this.position.y, groundH, Math.min(1.0, dt * 25.0));
         this.velocity.y = 0;
         this.isGrounded = true;
         this.isThrusterActive = false;
@@ -152,7 +167,7 @@ export class Player {
         // Airborne
         this.isGrounded = false;
 
-        // Aerial Ground Slam (press Ctrl or C while airborne)
+        // Aerial Ground Slam
         if ((input.wasKeyJustPressed('ControlLeft') || input.wasKeyJustPressed('KeyC')) && !this.isGroundSlamming && this.stamina >= 20) {
           this.isGroundSlamming = true;
           this.velocity.y = -38.0;
@@ -194,7 +209,7 @@ export class Player {
       this.isGrounded = true;
     }
 
-    // 4. Update Animations & Face
+    // 5. Update Animations & Face
     this.animator.update(dt, this.velocity, this.isGrounded, this.isThrusterActive);
     this.model.update(dt, cameraController.camera.position);
   }
