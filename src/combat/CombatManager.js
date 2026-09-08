@@ -19,6 +19,36 @@ export class CombatManager {
     this.chargeTime = 0;
     this.isCharging = false;
     this.hitStopTimer = 0;
+
+    this.onHitmarker = null;
+
+    // Tactical Aim Laser Sight Line
+    const laserGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -20)]);
+    const laserMat = new THREE.LineBasicMaterial({
+      color: 0x00ffff,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending
+    });
+    this.laserSight = new THREE.Line(laserGeom, laserMat);
+    this.laserSight.visible = false;
+    this.scene.add(this.laserSight);
+  }
+
+  setHitmarkerCallback(cb) {
+    this.onHitmarker = cb;
+  }
+
+  updateLaserSight(playerPos, aimDir, isAiming, maxDist = 55.0) {
+    if (!this.laserSight) return;
+    if (!isAiming) {
+      this.laserSight.visible = false;
+      return;
+    }
+    this.laserSight.visible = true;
+    const origin = playerPos.clone().add(new THREE.Vector3(0.32, 1.28, 0));
+    const endPoint = origin.clone().add(aimDir.clone().multiplyScalar(maxDist));
+    this.laserSight.geometry.setFromPoints([origin, endPoint]);
   }
 
   triggerHitStop(duration = 0.045) {
@@ -119,6 +149,7 @@ export class CombatManager {
     }
 
     onHitTarget?.(dmg, isCrit);
+    this.onHitmarker?.(isCrit);
   }
 
   spawnBossShockwave(pos) {
@@ -194,6 +225,7 @@ export class CombatManager {
           this.damageNumbers.spawn(p.damage, bossTitan.group.position, p.isAOE);
           this.cameraController.addShake(0.12);
           this.particleEngine?.spawnSparks(p.mesh.position, 24, 0xff00e5, 10.0);
+          this.onHitmarker?.(p.isAOE);
           if (killed) onEnemyKilled?.(bossTitan, 250);
 
           this.scene.remove(p.mesh);
@@ -211,6 +243,7 @@ export class CombatManager {
           this.damageNumbers.spawn(p.damage, enemy.group.position, p.isAOE);
           this.cameraController.addShake(0.08);
           this.particleEngine?.spawnSparks(p.mesh.position, 16, 0x00ffff, 8.0);
+          this.onHitmarker?.(p.isAOE);
           if (killed) onEnemyKilled?.(enemy, 35);
           hit = true;
           break;

@@ -10,10 +10,19 @@ export class CameraController {
       1000
     );
     this.mode = 'third'; // 'first' | 'third'
-    this.distance = settings.get('cameraDistance') || 3.8;
+    this.baseDistance = settings.get('cameraDistance') || 3.8;
+    this.aimDistance = 1.75;
+    this.distance = this.baseDistance;
     this.targetDistance = this.distance;
     this.heightOffset = 1.45;
-    this.shoulderOffset = 0.45;
+    this.baseShoulderOffset = 0.45;
+    this.aimShoulderOffset = 0.54;
+    this.shoulderOffset = this.baseShoulderOffset;
+
+    this.baseFov = settings.get('fov') || 70;
+    this.aimFov = 48;
+    this.isAiming = false;
+    this.aimProgress = 0.0;
 
     this.yaw = 0;
     this.pitch = 0.08; // slightly looking forward/up
@@ -29,12 +38,22 @@ export class CameraController {
     // Listen for real-time setting updates
     settings.onChange((key, val) => {
       if (key === 'fov') {
-        this.camera.fov = val;
-        this.camera.updateProjectionMatrix();
+        this.baseFov = val;
+        if (!this.isAiming) {
+          this.camera.fov = val;
+          this.camera.updateProjectionMatrix();
+        }
       } else if (key === 'cameraDistance') {
-        this.targetDistance = val;
+        this.baseDistance = val;
+        if (!this.isAiming) {
+          this.targetDistance = val;
+        }
       }
     });
+  }
+
+  setAiming(isAiming) {
+    this.isAiming = !!isAiming;
   }
 
   toggleMode() {
@@ -48,7 +67,8 @@ export class CameraController {
 
   applyMouseDelta(dx, dy) {
     const sensMultiplier = settings.get('mouseSens') || 1.0;
-    const baseSens = 0.0022 * sensMultiplier;
+    const aimSensScale = this.isAiming ? 0.72 : 1.0;
+    const baseSens = 0.0022 * sensMultiplier * aimSensScale;
     const invertY = settings.get('invertY') || false;
 
     // Yaw: moving mouse right rotates right
@@ -80,6 +100,21 @@ export class CameraController {
   }
 
   update(dt, playerPosition, terrainHeightFunc = null) {
+    // Smoothly transition ADS aim progress
+    const targetAim = this.isAiming ? 1.0 : 0.0;
+    this.aimProgress = THREE.MathUtils.lerp(this.aimProgress, targetAim, Math.min(1.0, dt * 14.0));
+
+    // Dynamic FOV Zoom for PUBG ADS
+    const currentFov = THREE.MathUtils.lerp(this.baseFov, this.aimFov, this.aimProgress);
+    if (Math.abs(this.camera.fov - currentFov) > 0.05) {
+      this.camera.fov = currentFov;
+      this.camera.updateProjectionMatrix();
+    }
+
+    // Dynamic distance & shoulder offset
+    this.targetDistance = THREE.MathUtils.lerp(this.baseDistance, this.aimDistance, this.aimProgress);
+    const effectiveShoulder = THREE.MathUtils.lerp(this.baseShoulderOffset, this.aimShoulderOffset, this.aimProgress);
+
     if (this.shakeIntensity > 0.001) {
       this.shakeIntensity = Math.max(0, this.shakeIntensity - dt * this.shakeDecay);
     }
@@ -98,7 +133,7 @@ export class CameraController {
       this.camera.lookAt(headPos.clone().add(aimDir.clone().multiplyScalar(20.0)));
     } else {
       // Over-the-shoulder third-person camera
-      const shoulder = right.clone().multiplyScalar(this.shoulderOffset);
+      const shoulder = right.clone().multiplyScalar(effectiveShoulder);
 
       // Camera orbital offset behind player
       // When pitching UP (pitch > 0), camera lowers slightly and angles up towards the sky

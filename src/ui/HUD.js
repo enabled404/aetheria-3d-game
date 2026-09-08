@@ -14,6 +14,14 @@ export class HUD {
     this.hotbarSlots = document.querySelectorAll('.hotbar-slot');
     this.chargeReticle = document.getElementById('charge-reticle');
 
+    // Tactical Reticle Elements
+    this.crosshairElem = document.getElementById('tactical-crosshair');
+    this.hitmarkerElem = document.getElementById('reticle-hitmarker');
+    this.targetTagElem = document.getElementById('reticle-target-tag');
+    this.altInspectElem = document.getElementById('alt-inspect-banner');
+    this.recoilBloom = 9.0;
+    this.hitmarkerTimer = 0;
+
     // Enhanced UI Elements
     this.radarCanvas = document.getElementById('mini-radar-canvas');
     this.radarCtx = this.radarCanvas?.getContext('2d');
@@ -25,6 +33,36 @@ export class HUD {
     this.toastTimer = 0;
 
     this.promptElem = document.getElementById('context-prompt');
+  }
+
+  setAiming(isAiming) {
+    if (this.crosshairElem) {
+      this.crosshairElem.classList.toggle('aiming', !!isAiming);
+    }
+  }
+
+  setTargetLock(target) {
+    if (!this.crosshairElem || !this.targetTagElem) return;
+    if (target) {
+      this.crosshairElem.classList.add('locked-on');
+      this.targetTagElem.textContent = `${target.icon || '🎯'} ${target.name} [${Math.round(target.distance)}m]`;
+      this.targetTagElem.className = `visible ${target.isHostile ? 'hostile' : ''}`;
+    } else {
+      this.crosshairElem.classList.remove('locked-on');
+      this.targetTagElem.className = '';
+    }
+  }
+
+  flashHitmarker(isCrit = false) {
+    if (!this.hitmarkerElem) return;
+    this.hitmarkerElem.className = isCrit ? 'hit crit' : 'hit';
+    this.hitmarkerTimer = 0.22;
+  }
+
+  setAltInspect(isActive) {
+    if (this.altInspectElem) {
+      this.altInspectElem.style.display = isActive ? 'block' : 'none';
+    }
   }
 
   showToast(text) {
@@ -97,14 +135,33 @@ export class HUD {
       }
     }
 
-    // 4. Damage Vignette
+    // 4. Hitmarker Timer
+    if (this.hitmarkerTimer > 0) {
+      this.hitmarkerTimer -= dt;
+      if (this.hitmarkerTimer <= 0 && this.hitmarkerElem) {
+        this.hitmarkerElem.className = '';
+      }
+    }
+
+    // 5. Dynamic Tactical Reticle Recoil Bloom
+    if (this.crosshairElem) {
+      let targetGap = 9.0;
+      if (this.crosshairElem.classList.contains('aiming')) targetGap = 5.0;
+      else if (isSprinting) targetGap = 16.0;
+      if (combatManager?.isCharging) targetGap += Math.min(10.0, combatManager.chargeTime * 8.0);
+
+      this.recoilBloom += (targetGap - this.recoilBloom) * Math.min(1.0, dt * 16.0);
+      this.crosshairElem.style.setProperty('--reticle-gap', `${this.recoilBloom.toFixed(1)}px`);
+    }
+
+    // 6. Damage Vignette
     if (this.vignette) {
       const lowHpFactor = Math.max(0, (0.35 - player.health / player.maxHealth) * 2.0);
       this.vignetteOpacity = Math.max(this.vignetteOpacity - dt * 2.0, lowHpFactor);
       this.vignette.style.opacity = `${this.vignetteOpacity}`;
     }
 
-    // 5. Toast Timer
+    // 7. Toast Timer
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0 && this.toastElem) {
@@ -113,7 +170,7 @@ export class HUD {
       }
     }
 
-    // 6. Mini-Radar (clean, accurate orientation)
+    // 8. Mini-Radar (clean, accurate orientation)
     if (this.radarCtx && this.radarCanvas) {
       this.renderMiniRadar(player.position, enemies, npcs, bossTitan, yaw);
     }

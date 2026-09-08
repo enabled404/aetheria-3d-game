@@ -38,6 +38,7 @@ import { HolographicCompass } from './ui/HolographicCompass.js';
 import { CraftingUI } from './ui/CraftingUI.js';
 import { SettingsUI } from './ui/SettingsUI.js';
 import { TitleScreen } from './ui/TitleScreen.js';
+import { GameCursor } from './ui/GameCursor.js';
 
 // 1. Initialize Core Engine & Systems
 const canvas = document.getElementById('game-canvas');
@@ -46,6 +47,9 @@ const cameraController = new CameraController();
 renderer.setCamera(cameraController.camera);
 
 const inputManager = new InputManager(canvas);
+const gameCursor = new GameCursor(inputManager);
+inputManager.setCanLockPredicate(() => !gameCursor.isAnyUIOpen());
+
 const assetManager = new AssetManager();
 const audioEngine = new AudioEngine();
 const particleEngine = new ParticleEngine(renderer.scene);
@@ -90,14 +94,19 @@ const harvestSystem = new HarvestSystem(renderer.scene, cameraController, partic
 const lootSystem = new LootSystem(renderer.scene);
 const questEngine = new QuestEngine();
 
-// 7. UI Systems
+// 7. UI Systems with Seamless GameCursor Management
 const hud = new HUD();
 const dialogueBox = new DialogueBox();
-const dialogueSystem = new DialogueSystem(dialogueBox);
-const topoMap = new TopoMap(terrain);
+const dialogueSystem = new DialogueSystem(dialogueBox, gameCursor);
+const topoMap = new TopoMap(terrain, gameCursor);
 const compass = new HolographicCompass();
-const craftingUI = new CraftingUI();
-const settingsUI = new SettingsUI(inputManager);
+const craftingUI = new CraftingUI(gameCursor);
+const settingsUI = new SettingsUI(inputManager, gameCursor);
+
+combatManager.setHitmarkerCallback((isCrit) => {
+  hud.flashHitmarker(isCrit);
+  audioEngine.playHitmarkerSound(isCrit);
+});
 
 // 8. Restore Saved Game if exists
 const savedData = saveSystem.load();
@@ -126,18 +135,21 @@ const titleScreen = new TitleScreen({
   hasSave: !!(savedData && savedData.player),
   onStart: () => {
     audioEngine.init();
+    gameCursor.closeUI('title');
     inputManager.requestPointerLock();
     hud.showToast('🚀 Expedition Commenced! Follow Quest Guidance.');
   },
   onContinue: () => {
     audioEngine.init();
     restoreSavedGame();
+    gameCursor.closeUI('title');
     inputManager.requestPointerLock();
   },
   onOpenSettings: () => {
     settingsUI.open();
   }
 });
+gameCursor.openUI('title');
 
 window.addEventListener('click', () => {
   audioEngine.init();
@@ -171,22 +183,17 @@ function animate() {
 
   // Settings & Pause Toggle (Esc or KeyO)
   if (inputManager.wasKeyJustPressed('KeyO') || inputManager.wasKeyJustPressed('Escape')) {
-    const isOpen = settingsUI.toggle();
-    if (isOpen) inputManager.exitPointerLock();
+    settingsUI.toggle();
   }
 
   // World Map Toggle
   if (inputManager.wasKeyJustPressed('KeyM')) {
-    const isOpen = topoMap.toggle(player.position, npcs, bossTitan, deployables);
-    if (isOpen) inputManager.exitPointerLock();
-    else inputManager.requestPointerLock();
+    topoMap.toggle(player.position, npcs, bossTitan, deployables);
   }
 
   // Crafting Toggle
   if (inputManager.wasKeyJustPressed('Tab')) {
-    const isOpen = craftingUI.toggle(player);
-    if (isOpen) inputManager.exitPointerLock();
-    else inputManager.requestPointerLock();
+    craftingUI.toggle(player);
   }
 
   // Temporal Stasis Bubble (Q)
@@ -233,7 +240,6 @@ function animate() {
       if (player.position.distanceTo(npc.position) < npc.interactionRadius) {
         dialogueSystem.startDialogue(npc);
         questEngine.onNpcTalk(npc.name, player, audioEngine, hud);
-        inputManager.exitPointerLock();
         break;
       }
     }
@@ -272,6 +278,11 @@ function animate() {
   // Harvest Tool (Slot 3)
   harvestSystem.update(dt);
   if (activeSlot === 'harvest_tool') {
+    if (cameraController.isAiming) {
+      cameraController.setAiming(false);
+      hud.setAiming(false);
+      combatManager.updateLaserSight(player.position, null, false);
+    }
     if (inputManager.wasMouseJustPressed(0)) {
       harvestSystem.performHarvest(player, (res) => {
         if (res.type === 'tree') audioEngine.playWoodChop();
@@ -281,15 +292,35 @@ function animate() {
       });
     }
   } else if (activeSlot === 'blaster') {
+    // PUBG-Style Tactical ADS Aiming (Hold RMB)
+    const isAimRequested = inputManager.isMouseDown(2);
+    if (isAimRequested && !cameraController.isAiming) {
+      cameraController.setAiming(true);
+      hud.setAiming(true);
+      audioEngine.playAimSound();
+    } else if (!isAimRequested && cameraController.isAiming) {
+      cameraController.setAiming(false);
+      hud.setAiming(false);
+    }
+
+    // Laser Sight Guide
+    const aimDir = cameraController.getAimDirection();
+    combatManager.updateLaserSight(player.position, aimDir, cameraController.isAiming);
+
+    // Blaster Fire & Charge
     if (inputManager.isMouseDown(0)) {
       if (!combatManager.isCharging) combatManager.startCharging();
     } else if (combatManager.isCharging) {
       const origin = player.position.clone().add(new THREE.Vector3(0, 1.4, 0));
-      const aimDir = cameraController.getAimDirection();
       combatManager.releaseCharge(origin, aimDir);
       audioEngine.playBlasterSound(combatManager.chargeTime >= 1.2);
     }
   } else if (activeSlot === 'katana') {
+    if (cameraController.isAiming) {
+      cameraController.setAiming(false);
+      hud.setAiming(false);
+      combatManager.updateLaserSight(player.position, null, false);
+    }
     if (inputManager.wasMouseJustPressed(0)) {
       combatManager.performMeleeAttack(player, (dmg, isCrit) => {
         audioEngine.playSwordSound(isCrit);
@@ -323,16 +354,23 @@ function animate() {
     } else {
       combatManager.isParrying = false;
     }
-  } else if (activeSlot === 'building_kit') {
-    const fwd = cameraController.getForwardVector();
-    const buildPos = buildGrid.updatePreview(player.position, fwd);
-    if (inputManager.wasMouseJustPressed(0)) {
-      buildGrid.placeBlock(buildPos, 'wood');
-      player.inventory.wood = Math.max(0, (player.inventory.wood || 0) - 2);
-      particleEngine.spawnSparks(buildPos, 10, 0xd4a373, 4.0);
-    }
   } else {
-    buildGrid.hidePreview();
+    if (cameraController.isAiming) {
+      cameraController.setAiming(false);
+      hud.setAiming(false);
+      combatManager.updateLaserSight(player.position, null, false);
+    }
+    if (activeSlot === 'building_kit') {
+      const fwd = cameraController.getForwardVector();
+      const buildPos = buildGrid.updatePreview(player.position, fwd);
+      if (inputManager.wasMouseJustPressed(0)) {
+        buildGrid.placeBlock(buildPos, 'wood');
+        player.inventory.wood = Math.max(0, (player.inventory.wood || 0) - 2);
+        particleEngine.spawnSparks(buildPos, 10, 0xd4a373, 4.0);
+      }
+    } else {
+      buildGrid.hidePreview();
+    }
   }
 
   // Quick Consume
@@ -476,6 +514,52 @@ function animate() {
   saveSystem.update(dt, { player, bossTitan, buildGrid, deployables, sky }, (toastMsg) => {
     hud.showToast(toastMsg);
   });
+
+  // Target Lock-On & Rangefinder Optics
+  let lockedTarget = null;
+  let minAimDist = Infinity;
+  const camPos = cameraController.camera.position;
+  const currentAimDir = cameraController.getAimDirection();
+
+  if (bossTitan && bossTitan.isAwake && !bossTitan.isDead) {
+    const toBoss = bossTitan.group.position.clone().sub(camPos);
+    const dist = toBoss.length();
+    if (dist < 75.0) {
+      const angle = currentAimDir.angleTo(toBoss.clone().normalize());
+      if (angle < 0.18 && dist < minAimDist) {
+        minAimDist = dist;
+        lockedTarget = { name: 'ANCIENT TITAN', distance: dist, isHostile: true, icon: '👑' };
+      }
+    }
+  }
+
+  for (const enemy of enemies) {
+    if (enemy.isDead) continue;
+    const toEnemy = enemy.group.position.clone().sub(camPos);
+    const dist = toEnemy.length();
+    if (dist < 65.0) {
+      const angle = currentAimDir.angleTo(toEnemy.clone().normalize());
+      if (angle < 0.15 && dist < minAimDist) {
+        minAimDist = dist;
+        lockedTarget = { name: enemy.type.toUpperCase(), distance: dist, isHostile: true, icon: '🎯' };
+      }
+    }
+  }
+
+  for (const npc of npcs) {
+    const toNpc = npc.position.clone().sub(camPos);
+    const dist = toNpc.length();
+    if (dist < 35.0) {
+      const angle = currentAimDir.angleTo(toNpc.clone().normalize());
+      if (angle < 0.12 && dist < minAimDist) {
+        minAimDist = dist;
+        lockedTarget = { name: npc.name.toUpperCase(), distance: dist, isHostile: false, icon: '💬' };
+      }
+    }
+  }
+
+  hud.setTargetLock(lockedTarget);
+  hud.setAltInspect(gameCursor.isAltHeld);
 
   // Update UI & Compass & Mini-Radar
   const isSprinting = inputManager.isKeyDown('ShiftLeft') && player.stamina > 5;

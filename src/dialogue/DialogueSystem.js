@@ -2,13 +2,18 @@ import { LORE_DATABASE } from './LoreDatabase.js';
 import { VoiceSynthesizer } from './VoiceSynthesizer.js';
 
 export class DialogueSystem {
-  constructor(uiDialogueBox) {
+  constructor(uiDialogueBox, gameCursor = null) {
     this.ui = uiDialogueBox;
+    this.gameCursor = gameCursor;
     this.voiceSynth = new VoiceSynthesizer();
     this.currentNPC = null;
     this.currentTree = null;
     this.currentNode = null;
     this.isOpen = false;
+  }
+
+  setGameCursor(gc) {
+    this.gameCursor = gc;
   }
 
   startDialogue(npc) {
@@ -18,6 +23,7 @@ export class DialogueSystem {
 
     this.currentTree = personaData.dialogueTree;
     this.isOpen = true;
+    this.gameCursor?.openUI('dialogue');
 
     this.showNode('root');
   }
@@ -70,5 +76,6 @@ export class DialogueSystem {
     this.isOpen = false;
     this.currentNPC = null;
     this.ui.hide();
+    this.gameCursor?.closeUI('dialogue');
   }
 }

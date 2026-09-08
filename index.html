@@ -136,17 +136,202 @@
     .boss-track { height: 14px; background: rgba(0, 0, 0, 0.6); border-radius: 7px; overflow: hidden; border: 1px solid rgba(255, 68, 34, 0.5); }
     #boss-hp-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #cc1100, #ff4422); box-shadow: 0 0 16px rgba(255, 68, 34, 0.8); }
 
-    /* Crosshair & Charge Ring */
-    #crosshair {
+    /* In-Game Holographic Cursor */
+    #game-cursor {
+      position: fixed;
+      pointer-events: none;
+      z-index: 999999;
+      transform: translate(-2px, -2px);
+      display: none;
+      filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.8));
+    }
+    body.ui-cursor-active {
+      cursor: default !important;
+    }
+    body.ui-cursor-active button, body.ui-cursor-active input {
+      cursor: pointer !important;
+    }
+
+    /* PUBG-Style Tactical Holographic Aim Reticle */
+    #tactical-crosshair {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 8px;
-      height: 8px;
-      border: 2px solid rgba(255, 255, 255, 0.8);
-      border-radius: 50%;
+      width: 48px;
+      height: 48px;
       pointer-events: none;
+      z-index: 100;
+      --reticle-gap: 9px;
+      transition: width 0.1s ease-out, height 0.1s ease-out;
+    }
+    .reticle-center-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 4px;
+      height: 4px;
+      background: #00ffff;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 6px #00ffff, 0 0 10px rgba(0, 255, 255, 0.8);
+      transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    }
+    .reticle-bracket {
+      position: absolute;
+      background: rgba(0, 229, 255, 0.85);
+      box-shadow: 0 0 5px rgba(0, 229, 255, 0.8);
+      transition: all 0.08s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+    .reticle-top {
+      top: var(--reticle-gap, 9px);
+      left: 50%;
+      width: 2px;
+      height: 7px;
+      transform: translateX(-50%);
+    }
+    .reticle-bottom {
+      bottom: var(--reticle-gap, 9px);
+      left: 50%;
+      width: 2px;
+      height: 7px;
+      transform: translateX(-50%);
+    }
+    .reticle-left {
+      left: var(--reticle-gap, 9px);
+      top: 50%;
+      width: 7px;
+      height: 2px;
+      transform: translateY(-50%);
+    }
+    .reticle-right {
+      right: var(--reticle-gap, 9px);
+      top: 50%;
+      width: 7px;
+      height: 2px;
+      transform: translateY(-50%);
+    }
+
+    /* Outer Holographic Optics Ring (illuminates during ADS / Aiming) */
+    .reticle-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 32px;
+      height: 32px;
+      transform: translate(-50%, -50%);
+      border: 1px dashed rgba(0, 229, 255, 0.35);
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    /* Tactical Aim Mode (ADS) Active */
+    #tactical-crosshair.aiming {
+      --reticle-gap: 5px;
+    }
+    #tactical-crosshair.aiming .reticle-ring {
+      opacity: 0.9;
+      transform: translate(-50%, -50%) scale(1.05);
+      border: 1px solid rgba(0, 255, 255, 0.65);
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.35);
+    }
+    #tactical-crosshair.aiming .reticle-center-dot {
+      transform: translate(-50%, -50%) scale(1.2);
+    }
+
+    /* Target Lock-On Indicator (When aimed at hostiles/boss) */
+    #tactical-crosshair.locked-on .reticle-center-dot {
+      background: #ff2a4b;
+      box-shadow: 0 0 10px #ff2a4b, 0 0 16px rgba(255, 42, 75, 0.9);
+      transform: translate(-50%, -50%) scale(1.4);
+    }
+    #tactical-crosshair.locked-on .reticle-bracket {
+      background: #ff2a4b;
+      box-shadow: 0 0 8px #ff2a4b;
+    }
+    #tactical-crosshair.locked-on .reticle-ring {
+      border-color: rgba(255, 42, 75, 0.7);
+      box-shadow: 0 0 12px rgba(255, 42, 75, 0.5);
+    }
+
+    /* Tactical Rangefinder Target Tag */
+    #reticle-target-tag {
+      position: absolute;
+      top: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      color: #00ffff;
+      text-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
+      background: rgba(6, 12, 22, 0.82);
+      border: 1px solid rgba(0, 229, 255, 0.5);
+      border-radius: 4px;
+      padding: 2px 8px;
+      opacity: 0;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      pointer-events: none;
+    }
+    #reticle-target-tag.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #reticle-target-tag.hostile {
+      color: #ff3344;
+      border-color: #ff3344;
+      text-shadow: 0 0 8px rgba(255, 51, 68, 0.9);
+      box-shadow: 0 0 10px rgba(255, 51, 68, 0.35);
+    }
+
+    /* Tactical Hitmarker (✕) */
+    #reticle-hitmarker {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.6);
+      font-size: 18px;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 0 10px #ff2a4b, 0 0 16px #ffffff;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.06s ease-out, opacity 0.15s ease-out;
+    }
+    #reticle-hitmarker.hit {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.2);
+    }
+    #reticle-hitmarker.crit {
+      color: #ff2a4b;
+      font-size: 22px;
+      text-shadow: 0 0 16px #ff0040, 0 0 24px #ffff00;
+    }
+
+    /* Free Cursor Inspect Mode Hint */
+    #alt-inspect-banner {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 16, 28, 0.88);
+      border: 1px solid #00ffff;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #00ffff;
+      letter-spacing: 1px;
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+      display: none;
+      z-index: 500;
+    }
+
+    /* Legacy Fallback */
+    #crosshair {
+      display: none;
     }
     #charge-reticle {
       display: none;
@@ -859,8 +1044,20 @@
       <div id="boss-hp-val" style="font-size: 11px; margin-top: 4px; color: #ffaa99;">950 / 950</div>
     </div>
 
-    <!-- Reticle & Charge Ring -->
-    <div id="crosshair"></div>
+    <!-- Free Cursor Inspect Mode Banner -->
+    <div id="alt-inspect-banner">🖱️ FREE CURSOR ACTIVE (RELEASE ALT TO AIM)</div>
+
+    <!-- Tactical PUBG-Style Crosshair -->
+    <div id="tactical-crosshair">
+      <div class="reticle-center-dot"></div>
+      <div class="reticle-bracket reticle-top"></div>
+      <div class="reticle-bracket reticle-bottom"></div>
+      <div class="reticle-bracket reticle-left"></div>
+      <div class="reticle-bracket reticle-right"></div>
+      <div class="reticle-ring"></div>
+      <div id="reticle-hitmarker">✕</div>
+      <div id="reticle-target-tag">🎯 TARGET [0m]</div>
+    </div>
     <div id="charge-reticle"></div>
 
     <!-- Vitals -->
@@ -930,7 +1127,8 @@
       <div><kbd>Ctrl</kbd> (in air) Aerial Ground Slam</div>
       <div><kbd>Q</kbd> Temporal Stasis Bubble</div>
       <div><kbd>LMB</kbd> Attack / <kbd>Hold</kbd> Charge Blaster</div>
-      <div><kbd>RMB</kbd> Parry Shield (Katana)</div>
+      <div><kbd>RMB</kbd> Hold Tactical ADS Aim (Blaster) / Parry (Katana)</div>
+      <div><kbd>Alt</kbd> (Hold) Free Cursor Mode (Click menus without Esc)</div>
       <div><kbd>E</kbd> Interact with NPC / Summit Altar</div>
       <div><kbd>F5</kbd> Quick Save • <kbd>F9</kbd> Quick Load</div>
       <div><kbd>Tab</kbd> Crafting • <kbd>M</kbd> Full Island Map</div>

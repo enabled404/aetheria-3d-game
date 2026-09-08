@@ -139,6 +139,44 @@ export class AudioEngine {
     osc.stop(this.ctx.currentTime + (isCharged ? 0.45 : 0.16));
   }
 
+  playHitmarkerSound(isCrit = false) {
+    if (!this.isInitialized) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+
+    osc.type = isCrit ? 'triangle' : 'sine';
+    osc.frequency.setValueAtTime(isCrit ? 2600 : 1900, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.055);
+
+    g.gain.setValueAtTime(0.24, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.055);
+
+    osc.connect(g);
+    g.connect(this.sfxGain);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.055);
+  }
+
+  playAimSound() {
+    if (!this.isInitialized) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(520, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(780, this.ctx.currentTime + 0.06);
+
+    g.gain.setValueAtTime(0.08, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.06);
+
+    osc.connect(g);
+    g.connect(this.sfxGain);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.06);
+  }
+
   playSwordSound(isCrit = false) {
     if (!this.isInitialized) return;
     const osc = this.ctx.createOscillator();

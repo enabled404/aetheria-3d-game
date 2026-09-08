@@ -1,20 +1,41 @@
 export class TopoMap {
-  constructor(terrain) {
+  constructor(terrain, gameCursor = null) {
     this.terrain = terrain;
     this.modal = document.getElementById('map-modal');
     this.canvas = document.getElementById('map-canvas');
     this.ctx = this.canvas?.getContext('2d');
     this.isOpen = false;
+    this.gameCursor = gameCursor;
+  }
+
+  setGameCursor(gc) {
+    this.gameCursor = gc;
   }
 
   toggle(playerPos, npcs, bossTitan, deployables) {
-    this.isOpen = !this.isOpen;
-    if (this.modal) {
-      this.modal.style.display = this.isOpen ? 'flex' : 'none';
-      if (this.isOpen) {
-        this.renderMap(playerPos, npcs, bossTitan, deployables);
-      }
+    if (this.isOpen) {
+      return this.close();
+    } else {
+      return this.open(playerPos, npcs, bossTitan, deployables);
     }
+  }
+
+  open(playerPos, npcs, bossTitan, deployables) {
+    this.isOpen = true;
+    if (this.modal) {
+      this.modal.style.display = 'flex';
+      this.renderMap(playerPos, npcs, bossTitan, deployables);
+    }
+    this.gameCursor?.openUI('map');
+    return this.isOpen;
+  }
+
+  close() {
+    this.isOpen = false;
+    if (this.modal) {
+      this.modal.style.display = 'none';
+    }
+    this.gameCursor?.closeUI('map');
     return this.isOpen;
   }
 

@@ -1,20 +1,41 @@
 import { CONFIG } from '../config.js';
 
 export class CraftingUI {
-  constructor() {
+  constructor(gameCursor = null) {
     this.modal = document.getElementById('crafting-modal');
     this.listElem = document.getElementById('crafting-list');
     this.isOpen = false;
+    this.gameCursor = gameCursor;
+  }
+
+  setGameCursor(gc) {
+    this.gameCursor = gc;
   }
 
   toggle(player) {
-    this.isOpen = !this.isOpen;
-    if (this.modal) {
-      this.modal.style.display = this.isOpen ? 'flex' : 'none';
-      if (this.isOpen) {
-        this.renderRecipes(player);
-      }
+    if (this.isOpen) {
+      return this.close();
+    } else {
+      return this.open(player);
     }
+  }
+
+  open(player) {
+    this.isOpen = true;
+    if (this.modal) {
+      this.modal.style.display = 'flex';
+      this.renderRecipes(player);
+    }
+    this.gameCursor?.openUI('crafting');
+    return this.isOpen;
+  }
+
+  close() {
+    this.isOpen = false;
+    if (this.modal) {
+      this.modal.style.display = 'none';
+    }
+    this.gameCursor?.closeUI('crafting');
     return this.isOpen;
   }
 

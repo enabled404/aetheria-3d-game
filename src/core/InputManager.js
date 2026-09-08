@@ -9,7 +9,13 @@ export class InputManager {
     this.isPointerLocked = false;
     this.selectedHotbarIndex = 0;
 
+    this.canLockPredicate = null;
+
     this.initListeners();
+  }
+
+  setCanLockPredicate(fn) {
+    this.canLockPredicate = fn;
   }
 
   initListeners() {
@@ -31,7 +37,12 @@ export class InputManager {
     });
 
     window.addEventListener('mousedown', (e) => {
+      // Prevent pointer lock from hijacking clicks on UI elements
+      const isUiClick = e.target.closest?.('#settings-modal, #dialogue-modal, #crafting-modal, #map-modal, #title-screen, #hud-settings-btn, #dialogue-choices, .recipe-card, .settings-panel, .dialogue-btn, .settings-tab, button, input');
+      if (isUiClick) return;
+
       if (!this.isPointerLocked) {
+        if (this.canLockPredicate && !this.canLockPredicate()) return;
         this.requestPointerLock();
         return;
       }

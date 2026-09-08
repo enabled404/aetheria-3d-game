@@ -1,14 +1,19 @@
 import { settings } from '../core/SettingsManager.js';
 
 export class SettingsUI {
-  constructor(inputManager = null) {
+  constructor(inputManager = null, gameCursor = null) {
     this.inputManager = inputManager;
+    this.gameCursor = gameCursor;
     this.isOpen = false;
     this.activeTab = 'controls';
 
     this.createDOM();
     this.bindEvents();
     this.syncFromSettings();
+  }
+
+  setGameCursor(gc) {
+    this.gameCursor = gc;
   }
 
   createDOM() {
@@ -412,11 +417,13 @@ export class SettingsUI {
     this.isOpen = true;
     this.syncFromSettings();
     this.modal.style.display = 'flex';
+    this.gameCursor?.openUI('settings');
     this.inputManager?.exitPointerLock();
   }
 
   close() {
     this.isOpen = false;
     this.modal.style.display = 'none';
+    this.gameCursor?.closeUI('settings');
   }
 }
