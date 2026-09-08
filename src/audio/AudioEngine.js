@@ -221,6 +221,108 @@ export class AudioEngine {
     setTimeout(() => this.playSynthNote(659.25, 0.35, 'triangle', 0.2), 120); // E5
   }
 
+  playFootstep(surface = 'grass') {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+
+    if (surface === 'water') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(140, now + 0.12);
+      g.gain.setValueAtTime(0.12, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    } else if (surface === 'rock') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(460, now);
+      osc.frequency.exponentialRampToValueAtTime(160, now + 0.08);
+      g.gain.setValueAtTime(0.10, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    } else if (surface === 'sand') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(90, now + 0.1);
+      g.gain.setValueAtTime(0.09, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    } else {
+      // Grass / soil
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(70, now + 0.09);
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+    }
+
+    osc.connect(g);
+    g.connect(this.sfxGain);
+    osc.start();
+    osc.stop(now + 0.12);
+  }
+
+  playWoodChop() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(280, now);
+    osc.frequency.exponentialRampToValueAtTime(60, now + 0.15);
+    g.gain.setValueAtTime(0.35, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    osc.connect(g);
+    g.connect(this.sfxGain);
+    osc.start();
+    osc.stop(now + 0.15);
+  }
+
+  playStoneClink() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(980, now);
+    osc.frequency.exponentialRampToValueAtTime(240, now + 0.18);
+    g.gain.setValueAtTime(0.32, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.connect(g);
+    g.connect(this.sfxGain);
+    osc.start();
+    osc.stop(now + 0.18);
+  }
+
+  playLootChime() {
+    if (!this.isInitialized) return;
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    notes.forEach((freq, idx) => {
+      setTimeout(() => this.playSynthNote(freq, 0.22, 'triangle', 0.18), idx * 60);
+    });
+  }
+
+  playQuestCompleteSound() {
+    if (!this.isInitialized) return;
+    const notes = [440, 554.37, 659.25, 880]; // A major fanfare
+    notes.forEach((freq, idx) => {
+      setTimeout(() => this.playSynthNote(freq, 0.45, 'triangle', 0.25), idx * 110);
+    });
+  }
+
+  playVictoryFanfare() {
+    if (!this.isInitialized) return;
+    const chords = [
+      [523.25, 659.25, 783.99], // Cmaj
+      [587.33, 739.99, 880.00], // Dmaj
+      [659.25, 830.61, 987.77], // Emaj
+      [1046.5, 1318.5, 1567.9]  // C6 grand
+    ];
+    chords.forEach((chord, cIdx) => {
+      setTimeout(() => {
+        chord.forEach(freq => this.playSynthNote(freq, 1.2, 'triangle', 0.22));
+      }, cIdx * 350);
+    });
+  }
+
   updateMusic(dt) {
     if (!this.isInitialized) return;
 

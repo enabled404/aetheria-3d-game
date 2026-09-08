@@ -78,6 +78,11 @@ export class Player {
 
     // Hotbar item IDs [0 - 5]
     this.hotbar = ['blaster', 'katana', 'harvest_tool', 'building_kit', 'cooked_meat', 'health_potion'];
+    this.stepTimer = 0;
+  }
+
+  setEquippedItem(itemId) {
+    this.model.setEquippedItem(itemId);
   }
 
   addXp(amount) {
@@ -108,7 +113,7 @@ export class Player {
     this.heal(healAmt);
   }
 
-  update(dt, input, cameraController, terrain, particleEngine = null, onGroundSlam = null, collisionSystem = null) {
+  update(dt, input, cameraController, terrain, particleEngine = null, onGroundSlam = null, collisionSystem = null, audioEngine = null) {
     // 1. Movement Inputs from Camera
     const fwd = cameraController.getForwardVector();
     const right = cameraController.getRightVector();
@@ -242,7 +247,27 @@ export class Player {
       this.isGrounded = true;
     }
 
-    // 6. Update Animations & Face
+    // 6. Footstep Sound Trigger
+    if (this.isGrounded && audioEngine) {
+      const hSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      if (hSpeed > 0.8) {
+        this.stepTimer += dt * (hSpeed / CONFIG.PLAYER.WALK_SPEED) * 2.3;
+        if (this.stepTimer >= 1.0) {
+          this.stepTimer = 0;
+          let surface = 'grass';
+          if (this.position.y < CONFIG.WORLD.WATER_LEVEL + 0.4) {
+            surface = 'water';
+          } else if (this.position.y < 2.2) {
+            surface = 'sand';
+          } else if (normal.y < 0.75) {
+            surface = 'rock';
+          }
+          audioEngine.playFootstep(surface);
+        }
+      }
+    }
+
+    // 7. Update Animations & Face
     this.animator.update(dt, this.velocity, this.isGrounded, this.isThrusterActive);
     this.model.update(dt, cameraController.camera.position);
   }

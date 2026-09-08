@@ -212,6 +212,10 @@ export class HumanoidModel {
     this.bones.rightHip = this.rightLeg.hip;
     this.bones.rightKnee = this.rightLeg.knee;
     this.bones.rightFoot = this.rightLeg.foot;
+
+    if (this.type === 'player') {
+      this.buildWeaponModels(accentMat);
+    }
   }
 
   buildPersonaSpecifics(skinMat, armorMat, accentMat, browMat) {
@@ -383,6 +387,121 @@ export class HumanoidModel {
     foot.add(bootMesh);
 
     return { hip, knee, foot };
+  }
+
+  buildWeaponModels(accentMat) {
+    this.weaponGroup = new THREE.Group();
+    this.bones.rightHand.add(this.weaponGroup);
+
+    // 1. Chrono Plasma Blaster Model
+    this.blasterModel = new THREE.Group();
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0x182030, metalness: 0.85, roughness: 0.25 });
+    const blasterBody = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.11, 0.26), metalMat);
+    blasterBody.position.set(0, -0.05, 0.1);
+    this.blasterModel.add(blasterBody);
+
+    const barrelGeom = new THREE.CylinderGeometry(0.024, 0.028, 0.16, 8);
+    barrelGeom.rotateX(Math.PI / 2);
+    const barrel = new THREE.Mesh(barrelGeom, metalMat);
+    barrel.position.set(0, -0.02, 0.26);
+    this.blasterModel.add(barrel);
+
+    const cyanEnergyMat = new THREE.MeshStandardMaterial({
+      color: 0x00e5ff,
+      emissive: 0x00ffff,
+      emissiveIntensity: 0.9,
+      roughness: 0.15
+    });
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.035, 0.2), cyanEnergyMat);
+    rail.position.set(0, 0.02, 0.11);
+    this.blasterModel.add(rail);
+
+    const tipGeom = new THREE.CylinderGeometry(0.032, 0.032, 0.04, 8);
+    tipGeom.rotateX(Math.PI / 2);
+    const tip = new THREE.Mesh(tipGeom, cyanEnergyMat);
+    tip.position.set(0, -0.02, 0.35);
+    this.blasterModel.add(tip);
+
+    this.blasterModel.position.set(0, -0.04, 0.06);
+    this.blasterModel.visible = false;
+    this.weaponGroup.add(this.blasterModel);
+
+    // 2. Ion Cyber-Katana Model
+    this.katanaModel = new THREE.Group();
+    const hilt = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.022, 0.024, 0.24, 8),
+      new THREE.MeshStandardMaterial({ color: 0x111622, roughness: 0.8 })
+    );
+    hilt.position.set(0, -0.1, 0);
+    this.katanaModel.add(hilt);
+
+    const tsuba = new THREE.Mesh(
+      new THREE.BoxGeometry(0.075, 0.015, 0.055),
+      new THREE.MeshStandardMaterial({ color: 0xddaa22, metalness: 0.9, roughness: 0.2 })
+    );
+    tsuba.position.set(0, 0.03, 0);
+    this.katanaModel.add(tsuba);
+
+    const bladeMat = new THREE.MeshStandardMaterial({
+      color: 0x00ffff,
+      emissive: 0x00d4ff,
+      emissiveIntensity: 0.95,
+      transparent: true,
+      opacity: 0.92,
+      roughness: 0.15,
+      metalness: 0.8
+    });
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.85, 0.045), bladeMat);
+    blade.position.set(0, 0.46, 0.01);
+    this.katanaModel.add(blade);
+
+    const core = new THREE.Mesh(
+      new THREE.BoxGeometry(0.007, 0.82, 0.018),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    core.position.set(0, 0.46, 0.028);
+    this.katanaModel.add(core);
+
+    this.katanaModel.position.set(0, -0.04, 0.06);
+    this.katanaModel.rotation.set(-Math.PI / 4, 0, 0);
+    this.katanaModel.visible = false;
+    this.weaponGroup.add(this.katanaModel);
+
+    // 3. Sonic Harvesting Multi-Tool Pickaxe Model
+    this.pickaxeModel = new THREE.Group();
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.02, 0.022, 0.72, 8),
+      new THREE.MeshStandardMaterial({ color: 0x2b3342, metalness: 0.7, roughness: 0.4 })
+    );
+    shaft.position.set(0, 0.2, 0);
+    this.pickaxeModel.add(shaft);
+
+    const headGeom = new THREE.ConeGeometry(0.055, 0.42, 6);
+    headGeom.rotateZ(Math.PI / 2);
+    const pickHead = new THREE.Mesh(
+      headGeom,
+      new THREE.MeshStandardMaterial({
+        color: 0xffaa00,
+        emissive: 0xff8800,
+        emissiveIntensity: 0.75,
+        metalness: 0.85,
+        roughness: 0.25
+      })
+    );
+    pickHead.position.set(0, 0.52, 0);
+    this.pickaxeModel.add(pickHead);
+
+    this.pickaxeModel.position.set(0, -0.04, 0.06);
+    this.pickaxeModel.rotation.set(-Math.PI / 4, 0, 0);
+    this.pickaxeModel.visible = false;
+    this.weaponGroup.add(this.pickaxeModel);
+  }
+
+  setEquippedItem(itemId) {
+    if (!this.weaponGroup) return;
+    this.blasterModel.visible = (itemId === 'blaster');
+    this.katanaModel.visible = (itemId === 'katana');
+    this.pickaxeModel.visible = (itemId === 'harvest_tool');
   }
 
   update(dt, cameraPosition) {

@@ -7,12 +7,14 @@ import { AssetManager } from './core/AssetManager.js';
 import { ParticleEngine } from './core/ParticleEngine.js';
 import { SaveSystem } from './core/SaveSystem.js';
 import { CollisionSystem } from './core/CollisionSystem.js';
+import { QuestEngine } from './core/QuestEngine.js';
 import { settings } from './core/SettingsManager.js';
 
 import { Terrain } from './world/Terrain.js';
 import { Ocean } from './world/Ocean.js';
 import { SkyAtmosphere } from './world/SkyAtmosphere.js';
 import { FoliageSystem } from './world/FoliageSystem.js';
+import { HarvestSystem } from './world/HarvestSystem.js';
 
 import { Player } from './entities/Player.js';
 import { Lyra } from './entities/NPCs/Lyra.js';
@@ -21,6 +23,7 @@ import { Kaelen } from './entities/NPCs/Kaelen.js';
 import { BossTitan } from './entities/BossTitan.js';
 import { Enemy } from './entities/Enemy.js';
 import { Deer } from './entities/Wildlife.js';
+import { LootSystem } from './entities/LootSystem.js';
 
 import { CombatManager } from './combat/CombatManager.js';
 import { BuildGrid } from './building/BuildGrid.js';
@@ -34,6 +37,7 @@ import { TopoMap } from './ui/TopoMap.js';
 import { HolographicCompass } from './ui/HolographicCompass.js';
 import { CraftingUI } from './ui/CraftingUI.js';
 import { SettingsUI } from './ui/SettingsUI.js';
+import { TitleScreen } from './ui/TitleScreen.js';
 
 // 1. Initialize Core Engine & Systems
 const canvas = document.getElementById('game-canvas');
@@ -78,10 +82,13 @@ const wildlife = [
   new Deer(renderer.scene, terrain, new THREE.Vector3(40, terrain.getHeightAt(40, -40), -40))
 ];
 
-// 6. Combat & Building
+// 6. Combat, Building, Harvesting & Loot
 const combatManager = new CombatManager(renderer.scene, cameraController, particleEngine);
 const buildGrid = new BuildGrid(renderer.scene);
 const deployables = new Deployables(renderer.scene, collisionSystem);
+const harvestSystem = new HarvestSystem(renderer.scene, cameraController, particleEngine, foliage, collisionSystem);
+const lootSystem = new LootSystem(renderer.scene);
+const questEngine = new QuestEngine();
 
 // 7. UI Systems
 const hud = new HUD();
@@ -94,26 +101,44 @@ const settingsUI = new SettingsUI(inputManager);
 
 // 8. Restore Saved Game if exists
 const savedData = saveSystem.load();
-if (savedData && savedData.player) {
-  player.position.set(savedData.player.x, savedData.player.y, savedData.player.z);
-  player.health = savedData.player.health;
-  player.maxHealth = savedData.player.maxHealth || 100;
-  player.stamina = savedData.player.stamina;
-  player.hunger = savedData.player.hunger;
-  player.level = savedData.player.level || 1;
-  player.xp = savedData.player.xp || 0;
-  if (savedData.player.inventory) player.inventory = savedData.player.inventory;
+function restoreSavedGame() {
+  if (savedData && savedData.player) {
+    player.position.set(savedData.player.x, savedData.player.y, savedData.player.z);
+    player.health = savedData.player.health;
+    player.maxHealth = savedData.player.maxHealth || 100;
+    player.stamina = savedData.player.stamina;
+    player.hunger = savedData.player.hunger;
+    player.level = savedData.player.level || 1;
+    player.xp = savedData.player.xp || 0;
+    if (savedData.player.inventory) player.inventory = savedData.player.inventory;
 
-  // Restore placed blocks
-  if (savedData.blocks) {
-    for (const b of savedData.blocks) {
-      buildGrid.placeBlock(new THREE.Vector3(b.x, b.y, b.z), b.type);
+    if (savedData.blocks) {
+      for (const b of savedData.blocks) {
+        buildGrid.placeBlock(new THREE.Vector3(b.x, b.y, b.z), b.type);
+      }
     }
+    hud.showToast('⚡ Saved Game Restored');
   }
-  hud.showToast('⚡ Saved Game Loaded');
 }
 
-// 9. User Interaction Listeners
+// 9. Title Screen & Cinematic Flyover
+const titleScreen = new TitleScreen({
+  hasSave: !!(savedData && savedData.player),
+  onStart: () => {
+    audioEngine.init();
+    inputManager.requestPointerLock();
+    hud.showToast('🚀 Expedition Commenced! Follow Quest Guidance.');
+  },
+  onContinue: () => {
+    audioEngine.init();
+    restoreSavedGame();
+    inputManager.requestPointerLock();
+  },
+  onOpenSettings: () => {
+    settingsUI.open();
+  }
+});
+
 window.addEventListener('click', () => {
   audioEngine.init();
 });
@@ -124,7 +149,16 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  // Mouse deltas for camera (pitch and yaw)
+  // 1. Cinematic Title Screen Flyover Mode
+  if (titleScreen.isActive) {
+    titleScreen.updateFlyover(dt, cameraController.camera);
+    ocean.update(dt);
+    sky.update(dt, player.position);
+    renderer.render();
+    return;
+  }
+
+  // 2. Mouse deltas for camera (pitch and yaw)
   const md = inputManager.consumeMouseDelta();
   if (inputManager.isPointerLocked) {
     cameraController.applyMouseDelta(md.x, md.y);
@@ -169,14 +203,8 @@ function animate() {
     hud.showToast('💾 Quick Save Successful');
   }
   if (inputManager.wasKeyJustPressed('F9')) {
-    const loaded = saveSystem.load();
-    if (loaded && loaded.player) {
-      player.position.set(loaded.player.x, loaded.player.y, loaded.player.z);
-      player.health = loaded.player.health;
-      player.inventory = loaded.player.inventory;
-      audioEngine.playToastSound();
-      hud.showToast('⚡ Quick Load Complete');
-    }
+    restoreSavedGame();
+    audioEngine.playToastSound();
   }
 
   // Contextual Interaction Check
@@ -204,6 +232,7 @@ function animate() {
     for (const npc of npcs) {
       if (player.position.distanceTo(npc.position) < npc.interactionRadius) {
         dialogueSystem.startDialogue(npc);
+        questEngine.onNpcTalk(npc.name, player, audioEngine, hud);
         inputManager.exitPointerLock();
         break;
       }
@@ -235,11 +264,23 @@ function animate() {
     }
   }
 
-  // Combat Inputs
+  // Active Hotbar Item & Visible 3D Weapon in Hand
   const activeSlot = player.hotbar[inputManager.selectedHotbarIndex];
   hud.setHotbarActive(inputManager.selectedHotbarIndex);
+  player.setEquippedItem(activeSlot);
 
-  if (activeSlot === 'blaster') {
+  // Harvest Tool (Slot 3)
+  harvestSystem.update(dt);
+  if (activeSlot === 'harvest_tool') {
+    if (inputManager.wasMouseJustPressed(0)) {
+      harvestSystem.performHarvest(player, (res) => {
+        if (res.type === 'tree') audioEngine.playWoodChop();
+        else if (res.type === 'rock') audioEngine.playStoneClink();
+        else audioEngine.playSwordSound();
+        hud.showToast(res.label);
+      });
+    }
+  } else if (activeSlot === 'blaster') {
     if (inputManager.isMouseDown(0)) {
       if (!combatManager.isCharging) combatManager.startCharging();
     } else if (combatManager.isCharging) {
@@ -254,15 +295,23 @@ function animate() {
         audioEngine.playSwordSound(isCrit);
         for (const e of enemies) {
           if (!e.isDead && player.position.distanceTo(e.group.position) < 3.2) {
-            e.takeDamage(dmg);
+            const died = e.takeDamage(dmg);
             combatManager.damageNumbers.spawn(dmg, e.group.position, isCrit);
             particleEngine.spawnSparks(e.group.position, isCrit ? 22 : 12, 0x00ffff, 8.0);
+            if (died) {
+              lootSystem.spawnDrop(e.group.position, e.type);
+              questEngine.onEnemyDefeated(e.type, player, audioEngine, hud);
+            }
           }
         }
         if (bossTitan.isAwake && !bossTitan.isDead && player.position.distanceTo(bossTitan.group.position) < 6.5) {
           bossTitan.takeDamage(dmg);
           combatManager.damageNumbers.spawn(dmg, bossTitan.group.position, isCrit);
           particleEngine.spawnSparks(bossTitan.group.position, 25, 0xff00e5, 10.0);
+          if (bossTitan.isDead) {
+            lootSystem.spawnDrop(bossTitan.position, 'titan');
+            questEngine.onBossDefeated(player, audioEngine, hud);
+          }
         }
       });
     }
@@ -301,7 +350,7 @@ function animate() {
     }
   }
 
-  // Update Game Entities & Ground Slam with Spatial Collisions
+  // Update Game Entities & Ground Slam with Spatial Collisions & Foley
   player.update(
     dt,
     inputManager,
@@ -309,19 +358,23 @@ function animate() {
     terrain,
     particleEngine,
     (slamPos) => {
-      // Ground Slam Landing
       combatManager.spawnBossShockwave(slamPos);
       audioEngine.playGroundSlamSound();
       cameraController.addShake(0.4);
       hud.showToast('💥 Aerial Ground Slam!');
       for (const e of enemies) {
         if (!e.isDead && slamPos.distanceTo(e.group.position) < 9.0) {
-          e.takeDamage(55);
+          const died = e.takeDamage(55);
           combatManager.damageNumbers.spawn(55, e.group.position, true);
+          if (died) {
+            lootSystem.spawnDrop(e.group.position, e.type);
+            questEngine.onEnemyDefeated(e.type, player, audioEngine, hud);
+          }
         }
       }
     },
-    collisionSystem
+    collisionSystem,
+    audioEngine
   );
 
   cameraController.update(dt, player.position, (x, z) => terrain.getHeightAt(x, z));
@@ -348,7 +401,7 @@ function animate() {
     (from, to) => combatManager.spawnBossBoulder(from, to)
   );
 
-  // Update Hostile Enemies with Obstacle Collisions
+  // Update Hostile Enemies with Obstacle Collisions & Billboard HP
   for (const enemy of enemies) {
     enemy.update(dt, player.position, (dmg) => {
       if (combatManager.isParrying) {
@@ -362,7 +415,7 @@ function animate() {
         particleEngine.spawnSparks(player.position, 12, 0xff2244, 6.0);
         cameraController.addShake(0.2);
       }
-    }, collisionSystem);
+    }, collisionSystem, cameraController.camera);
   }
 
   // Update Wildlife
@@ -390,10 +443,31 @@ function animate() {
     },
     (killedObj, xp) => {
       player.addXp(xp);
+      lootSystem.spawnDrop(killedObj.group.position, killedObj.type);
+      questEngine.onEnemyDefeated(killedObj.type, player, audioEngine, hud);
       particleEngine.spawnSparks(player.position, 20, 0xffd700, 7.0);
       hud.showToast(`✨ Gained +${xp} XP!`);
     }
   );
+
+  // Update 3D Floating Loot Drops with Magnetic Suction
+  lootSystem.update(dt, player.position, (itemType, label) => {
+    audioEngine.playLootChime();
+    if (itemType === 'vitality_orb') {
+      player.heal(25);
+      particleEngine.spawnSparks(player.position, 14, 0x22ff66, 4.0);
+    } else if (itemType === 'chrono_shard') {
+      player.inventory.crystal = (player.inventory.crystal || 0) + 2;
+      particleEngine.spawnSparks(player.position, 14, 0x00ffff, 4.0);
+    } else if (itemType === 'titan_core') {
+      player.inventory.titan_core = (player.inventory.titan_core || 0) + 1;
+      particleEngine.spawnSparks(player.position, 28, 0xffaa00, 8.0);
+    }
+    hud.showToast(label);
+  });
+
+  // Update Quest Engine
+  questEngine.update(dt, player, bossTitan, audioEngine, hud);
 
   // Update Particles
   particleEngine.update(dt, player.position);
@@ -417,4 +491,4 @@ function animate() {
 
 // Launch Engine
 requestAnimationFrame(animate);
-console.log(`🌟 Aetheria ${CONFIG.VERSION} Ultra Polish Engine Booted Successfully.`);
+console.log(`🌟 Aetheria ${CONFIG.VERSION} S-Tier RPG Engine Booted Successfully.`);

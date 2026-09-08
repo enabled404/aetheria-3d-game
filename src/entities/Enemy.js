@@ -37,6 +37,7 @@ export class Enemy {
     });
 
     const s = (this.type === 'brute') ? 1.6 : (this.type === 'stalker' ? 0.9 : 1.1);
+    this.scaleFactor = s;
 
     // Body
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.7 * s, 1.1 * s, 0.5 * s), this.mat);
@@ -57,10 +58,31 @@ export class Enemy {
     this.rArm = new THREE.Mesh(new THREE.BoxGeometry(0.22 * s, 0.8 * s, 0.22 * s), this.mat);
     this.rArm.position.set(0.48 * s, 0.7 * s, 0);
     this.group.add(this.rArm);
+
+    // 3D Billboard Floating Health Bar
+    this.hpBarGroup = new THREE.Group();
+    this.hpBarGroup.position.y = 1.7 * s;
+
+    const bgGeom = new THREE.PlaneGeometry(0.95 * s, 0.11 * s);
+    const bgMat = new THREE.MeshBasicMaterial({ color: 0x060c18, side: THREE.DoubleSide });
+    const hpBg = new THREE.Mesh(bgGeom, bgMat);
+    this.hpBarGroup.add(hpBg);
+
+    const fillGeom = new THREE.PlaneGeometry(0.91 * s, 0.075 * s);
+    const fillMat = new THREE.MeshBasicMaterial({ color: 0xff2e5b, side: THREE.DoubleSide });
+    this.hpBarFill = new THREE.Mesh(fillGeom, fillMat);
+    this.hpBarFill.position.z = 0.01;
+    this.hpBarGroup.add(this.hpBarFill);
+
+    this.group.add(this.hpBarGroup);
   }
 
   takeDamage(amount) {
     this.health = Math.max(0, this.health - amount);
+    const pct = this.health / this.maxHealth;
+    this.hpBarFill.scale.x = Math.max(0.001, pct);
+    this.hpBarFill.position.x = -((1.0 - pct) * 0.45 * this.scaleFactor);
+
     if (this.health <= 0) {
       this.isDead = true;
       this.scene.remove(this.group);
@@ -69,8 +91,13 @@ export class Enemy {
     return false;
   }
 
-  update(dt, playerPosition, onAttackPlayer, collisionSystem = null) {
+  update(dt, playerPosition, onAttackPlayer, collisionSystem = null, camera = null) {
     if (this.isDead) return;
+
+    // Billboard health bar to face camera
+    if (camera && this.hpBarGroup) {
+      this.hpBarGroup.quaternion.copy(camera.quaternion);
+    }
 
     // Handle Chrono Stasis Freeze
     if (this.isFrozen) {
@@ -80,7 +107,7 @@ export class Enemy {
         this.isFrozen = false;
         this.mat.color.setHex(this.origColor);
       }
-      return; // Freeze movement and attack
+      return;
     }
 
     if (this.cooldownTimer > 0) this.cooldownTimer -= dt;

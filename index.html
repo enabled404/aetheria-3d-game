@@ -606,6 +606,216 @@
       transition: all 0.15s;
     }
     .settings-sec-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.15); }
+
+    /* Active Quest Card */
+    #quest-card {
+      position: absolute;
+      top: 148px;
+      left: 20px;
+      width: 270px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 12px;
+      pointer-events: auto;
+      border-left: 3px solid #00e5ff;
+    }
+    .quest-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+    }
+    .quest-chapter {
+      font-size: 10px;
+      font-weight: 800;
+      color: #00e5ff;
+      letter-spacing: 1.5px;
+    }
+    .quest-tag {
+      font-size: 9px;
+      background: rgba(0, 229, 255, 0.18);
+      color: #7fd0ff;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+    .quest-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .quest-desc {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.4;
+    }
+    .quest-progress {
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #20e386;
+      background: rgba(32, 227, 134, 0.12);
+      padding: 3px 6px;
+      border-radius: 4px;
+    }
+    .quest-reward {
+      font-size: 10px;
+      color: #ffaa00;
+      margin-top: 2px;
+    }
+
+    /* Cinematic Title Screen */
+    #title-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(8, 14, 28, 0.45) 0%, rgba(2, 5, 12, 0.88) 100%);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .title-container {
+      max-width: 680px;
+      text-align: center;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .title-badge {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: #00e5ff;
+      background: rgba(0, 229, 255, 0.15);
+      border: 1px solid rgba(0, 229, 255, 0.35);
+      padding: 4px 14px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .game-logo {
+      font-size: 54px;
+      font-weight: 900;
+      letter-spacing: 12px;
+      color: #ffffff;
+      text-shadow: 0 0 35px rgba(0, 229, 255, 0.75), 0 0 70px rgba(0, 229, 255, 0.35);
+      margin: 0;
+      line-height: 1.1;
+    }
+    .game-sublogo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #7fd0ff;
+    }
+    .title-lore {
+      font-size: 13px;
+      line-height: 1.65;
+      color: #b0c4de;
+      max-width: 540px;
+      margin: 6px 0 16px;
+    }
+    .title-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
+    }
+    .title-btn-pri {
+      background: linear-gradient(135deg, #00d4ff 0%, #0066ff 100%);
+      border: none;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .title-btn-pri:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 0 45px rgba(0, 212, 255, 0.75);
+    }
+    .title-btn-sec {
+      background: rgba(14, 24, 44, 0.8);
+      border: 1px solid rgba(0, 229, 255, 0.4);
+      color: #7fd0ff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 11px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .title-btn-sec:hover { background: rgba(0, 229, 255, 0.2); color: #fff; }
+    .title-btn-ter {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px;
+      transition: color 0.15s;
+    }
+    .title-btn-ter:hover { color: #00e5ff; }
+    .title-features-strip {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .tf-item {
+      font-size: 11px;
+      color: #8da4be;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    /* Victory Modal */
+    #victory-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 16, 0.88);
+      backdrop-filter: blur(16px);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .victory-panel {
+      max-width: 520px;
+      text-align: center;
+      padding: 32px;
+      border: 1px solid rgba(0, 229, 255, 0.5);
+      box-shadow: 0 0 60px rgba(0, 229, 255, 0.35);
+    }
+    .victory-stats {
+      display: flex;
+      justify-content: space-around;
+      background: rgba(14, 24, 44, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 14px;
+      margin: 14px 0;
+    }
+    .v-stat { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+    .v-stat span { color: #8faecf; font-size: 11px; }
   </style>
 </head>
 <body>
