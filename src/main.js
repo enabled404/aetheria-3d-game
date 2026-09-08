@@ -6,6 +6,8 @@ import { InputManager } from './core/InputManager.js';
 import { AssetManager } from './core/AssetManager.js';
 import { ParticleEngine } from './core/ParticleEngine.js';
 import { SaveSystem } from './core/SaveSystem.js';
+import { CollisionSystem } from './core/CollisionSystem.js';
+import { settings } from './core/SettingsManager.js';
 
 import { Terrain } from './world/Terrain.js';
 import { Ocean } from './world/Ocean.js';
@@ -31,6 +33,7 @@ import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { TopoMap } from './ui/TopoMap.js';
 import { HolographicCompass } from './ui/HolographicCompass.js';
 import { CraftingUI } from './ui/CraftingUI.js';
+import { SettingsUI } from './ui/SettingsUI.js';
 
 // 1. Initialize Core Engine & Systems
 const canvas = document.getElementById('game-canvas');
@@ -43,12 +46,13 @@ const assetManager = new AssetManager();
 const audioEngine = new AudioEngine();
 const particleEngine = new ParticleEngine(renderer.scene);
 const saveSystem = new SaveSystem();
+const collisionSystem = new CollisionSystem();
 
 // 2. Initialize World
 const terrain = new Terrain(renderer.scene);
 const ocean = new Ocean(renderer.scene);
 const sky = new SkyAtmosphere(renderer.scene);
-const foliage = new FoliageSystem(renderer.scene, terrain);
+const foliage = new FoliageSystem(renderer.scene, terrain, collisionSystem);
 
 // 3. Initialize Player
 const player = new Player(renderer.scene, assetManager);
@@ -62,7 +66,7 @@ const npcs = [
 ];
 
 // 5. Initialize Boss & Hostiles
-const bossTitan = new BossTitan(renderer.scene, terrain);
+const bossTitan = new BossTitan(renderer.scene, terrain, collisionSystem);
 const enemies = [
   new Enemy(renderer.scene, terrain, 'grunt', new THREE.Vector3(35, terrain.getHeightAt(35, 90), 90)),
   new Enemy(renderer.scene, terrain, 'brute', new THREE.Vector3(-50, terrain.getHeightAt(-50, 110), 110)),
@@ -77,7 +81,7 @@ const wildlife = [
 // 6. Combat & Building
 const combatManager = new CombatManager(renderer.scene, cameraController, particleEngine);
 const buildGrid = new BuildGrid(renderer.scene);
-const deployables = new Deployables(renderer.scene);
+const deployables = new Deployables(renderer.scene, collisionSystem);
 
 // 7. UI Systems
 const hud = new HUD();
@@ -86,6 +90,7 @@ const dialogueSystem = new DialogueSystem(dialogueBox);
 const topoMap = new TopoMap(terrain);
 const compass = new HolographicCompass();
 const craftingUI = new CraftingUI();
+const settingsUI = new SettingsUI(inputManager);
 
 // 8. Restore Saved Game if exists
 const savedData = saveSystem.load();
@@ -119,7 +124,7 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  // Mouse deltas for camera
+  // Mouse deltas for camera (pitch and yaw)
   const md = inputManager.consumeMouseDelta();
   if (inputManager.isPointerLocked) {
     cameraController.applyMouseDelta(md.x, md.y);
@@ -128,6 +133,12 @@ function animate() {
   // Camera Mode Toggle
   if (inputManager.wasKeyJustPressed('KeyV')) {
     cameraController.toggleMode();
+  }
+
+  // Settings & Pause Toggle (Esc or KeyO)
+  if (inputManager.wasKeyJustPressed('KeyO') || inputManager.wasKeyJustPressed('Escape')) {
+    const isOpen = settingsUI.toggle();
+    if (isOpen) inputManager.exitPointerLock();
   }
 
   // World Map Toggle
@@ -233,13 +244,12 @@ function animate() {
       if (!combatManager.isCharging) combatManager.startCharging();
     } else if (combatManager.isCharging) {
       const origin = player.position.clone().add(new THREE.Vector3(0, 1.4, 0));
-      const fwd = cameraController.getForwardVector();
-      combatManager.releaseCharge(origin, fwd);
+      const aimDir = cameraController.getAimDirection();
+      combatManager.releaseCharge(origin, aimDir);
       audioEngine.playBlasterSound(combatManager.chargeTime >= 1.2);
     }
   } else if (activeSlot === 'katana') {
     if (inputManager.wasMouseJustPressed(0)) {
-      const fwd = cameraController.getForwardVector();
       combatManager.performMeleeAttack(player, (dmg, isCrit) => {
         audioEngine.playSwordSound(isCrit);
         for (const e of enemies) {
@@ -291,7 +301,7 @@ function animate() {
     }
   }
 
-  // Update Game Entities & Ground Slam
+  // Update Game Entities & Ground Slam with Spatial Collisions
   player.update(
     dt,
     inputManager,
@@ -310,7 +320,8 @@ function animate() {
           combatManager.damageNumbers.spawn(55, e.group.position, true);
         }
       }
-    }
+    },
+    collisionSystem
   );
 
   cameraController.update(dt, player.position, (x, z) => terrain.getHeightAt(x, z));
@@ -337,7 +348,7 @@ function animate() {
     (from, to) => combatManager.spawnBossBoulder(from, to)
   );
 
-  // Update Hostile Enemies
+  // Update Hostile Enemies with Obstacle Collisions
   for (const enemy of enemies) {
     enemy.update(dt, player.position, (dmg) => {
       if (combatManager.isParrying) {
@@ -351,7 +362,7 @@ function animate() {
         particleEngine.spawnSparks(player.position, 12, 0xff2244, 6.0);
         cameraController.addShake(0.2);
       }
-    });
+    }, collisionSystem);
   }
 
   // Update Wildlife

@@ -69,7 +69,7 @@ export class Enemy {
     return false;
   }
 
-  update(dt, playerPosition, onAttackPlayer) {
+  update(dt, playerPosition, onAttackPlayer, collisionSystem = null) {
     if (this.isDead) return;
 
     // Handle Chrono Stasis Freeze
@@ -98,6 +98,12 @@ export class Enemy {
         // Chase player
         this.group.position.x += Math.sin(angle) * this.speed * dt;
         this.group.position.z += Math.cos(angle) * this.speed * dt;
+
+        // Resolve obstacle collision (trees, boulders, structures)
+        if (collisionSystem) {
+          collisionSystem.resolveCircleCollision(this.group.position, 0.65);
+        }
+
         this.group.position.y = this.terrain.getHeightAt(this.group.position.x, this.group.position.z);
 
         // Walk swing

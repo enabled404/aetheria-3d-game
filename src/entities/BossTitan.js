@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 
 export class BossTitan {
-  constructor(scene, terrain) {
+  constructor(scene, terrain, collisionSystem = null) {
     this.scene = scene;
     this.terrain = terrain;
+    this.collisionSystem = collisionSystem;
 
     this.position = new THREE.Vector3(0, terrain.getHeightAt(0, 0), 0);
     this.health = 950;
@@ -41,10 +42,16 @@ export class BossTitan {
 
     for (let i = 0; i < 4; i++) {
       const ang = (i / 4) * Math.PI * 2;
+      const mx = Math.cos(ang) * 11;
+      const mz = Math.sin(ang) * 11;
       const mono = new THREE.Mesh(monoGeom, runeMat);
-      mono.position.set(Math.cos(ang) * 11, 4.5, Math.sin(ang) * 11);
+      mono.position.set(mx, 4.5, mz);
       mono.castShadow = true;
       this.altarGroup.add(mono);
+
+      if (this.collisionSystem) {
+        this.collisionSystem.addCollider(this.position.x + mx, this.position.z + mz, 1.2, 7.0, 'monolith');
+      }
     }
 
     this.scene.add(this.altarGroup);

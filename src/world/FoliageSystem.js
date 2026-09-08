@@ -2,22 +2,24 @@ import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
 export class FoliageSystem {
-  constructor(scene, terrain) {
+  constructor(scene, terrain, collisionSystem = null) {
     this.scene = scene;
     this.terrain = terrain;
+    this.collisionSystem = collisionSystem;
 
     this.trees = [];
     this.rocks = [];
     this.crystals = [];
+    this.waystones = [];
 
     this.spawnFoliage();
+    this.spawnWaystoneLanterns();
   }
 
   spawnFoliage() {
     const size = CONFIG.WORLD.SIZE;
 
     // 1. Multi-Tiered Conifer Trees
-    // Trunk
     const trunkGeom = new THREE.CylinderGeometry(0.32, 0.52, 4.2, 7);
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2716, roughness: 0.9 });
     this.treeTrunks = new THREE.InstancedMesh(trunkGeom, trunkMat, CONFIG.WORLD.TREE_COUNT);
@@ -76,7 +78,15 @@ export class FoliageSystem {
         dummy.updateMatrix();
         this.treeTier3.setMatrixAt(treeIdx, dummy.matrix);
 
-        this.trees.push({ x, y, z, radius: 1.4 * s, hp: 5 });
+        // Save tree reference
+        const treeObj = { x, y, z, radius: 0.55 * s, hp: 5 };
+        this.trees.push(treeObj);
+
+        // Register trunk cylinder in spatial physics grid
+        if (this.collisionSystem) {
+          this.collisionSystem.addCollider(x, z, 0.52 * s, 6.0, 'tree', treeObj);
+        }
+
         treeIdx++;
       }
     }
@@ -98,7 +108,6 @@ export class FoliageSystem {
 
     // 2. Realistic Mossy Granite Boulders
     const rockGeom = new THREE.DodecahedronGeometry(1.3, 1);
-    // Deform vertices slightly for organic rock look
     const posAttr = rockGeom.attributes.position;
     for (let j = 0; j < posAttr.count; j++) {
       const vx = posAttr.getX(j);
@@ -126,14 +135,20 @@ export class FoliageSystem {
       const y = this.terrain.getHeightAt(x, z);
       if (y > 1.2) {
         const s = 0.75 + Math.random() * 0.9;
-        // Partially embed rock into ground (y - 0.3 * s) so it sits naturally
         dummy.position.set(x, y + 0.35 * s, z);
         dummy.scale.set(s * (1 + Math.random() * 0.4), s * 0.75, s * (1 + Math.random() * 0.4));
         dummy.rotation.set(Math.random() * 0.4, Math.random() * Math.PI, Math.random() * 0.4);
         dummy.updateMatrix();
         this.rockMesh.setMatrixAt(rockIdx, dummy.matrix);
 
-        this.rocks.push({ x, y, z, radius: 1.1 * s, hp: 6 });
+        const rockObj = { x, y, z, radius: 1.15 * s, hp: 6 };
+        this.rocks.push(rockObj);
+
+        // Register boulder in spatial physics grid
+        if (this.collisionSystem) {
+          this.collisionSystem.addCollider(x, z, 1.15 * s, 3.0, 'rock', rockObj);
+        }
+
         rockIdx++;
       }
     }
@@ -146,8 +161,8 @@ export class FoliageSystem {
     const crystalMat = new THREE.MeshStandardMaterial({
       color: 0x00e5ff,
       emissive: 0x00bcd4,
-      emissiveIntensity: 0.65,
-      roughness: 0.25,
+      emissiveIntensity: 0.8,
+      roughness: 0.2,
       metalness: 0.6,
       transparent: true,
       opacity: 0.9,
@@ -170,12 +185,75 @@ export class FoliageSystem {
         dummy.updateMatrix();
         this.crystalMesh.setMatrixAt(crystalIdx, dummy.matrix);
 
-        this.crystals.push({ x, y, z, radius: 0.8 * s, hp: 4 });
+        const crystalObj = { x, y, z, radius: 0.65 * s, hp: 4 };
+        this.crystals.push(crystalObj);
+
+        // Register crystal spire in spatial physics grid
+        if (this.collisionSystem) {
+          this.collisionSystem.addCollider(x, z, 0.6 * s, 3.5, 'crystal', crystalObj);
+        }
+
+        // Add glowing point lights to top prominent crystal clusters
+        if (crystalIdx < 6) {
+          const crystalLight = new THREE.PointLight(0x00e5ff, 2.2, 18, 1.4);
+          crystalLight.position.set(x, y + 2.0 * s, z);
+          this.scene.add(crystalLight);
+        }
+
         crystalIdx++;
       }
     }
     this.crystalMesh.count = crystalIdx;
     this.crystalMesh.instanceMatrix.needsUpdate = true;
     this.scene.add(this.crystalMesh);
+  }
+
+  spawnWaystoneLanterns() {
+    // Ancient runic stone pillars with glowing fire lanterns along paths & key sites
+    const waystoneLocations = [
+      { x: 12, z: 42, label: "Coast Haven Waystone" },
+      { x: -24, z: 52, label: "Forge Trail Waystone" },
+      { x: 42, z: -15, label: "Eastern Glade Waystone" },
+      { x: 0, z: 32, label: "South Ascent Waystone" },
+      { x: -18, z: -25, label: "Northern Ridge Waystone" },
+      { x: 26, z: 80, label: "Overlook Waystone" }
+    ];
+
+    const stoneGeom = new THREE.CylinderGeometry(0.35, 0.45, 2.6, 6);
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x424652, roughness: 0.85 });
+
+    const lanternGeom = new THREE.DodecahedronGeometry(0.32);
+    const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffb733 });
+
+    for (const loc of waystoneLocations) {
+      const y = this.terrain.getHeightAt(loc.x, loc.z);
+      const group = new THREE.Group();
+      group.position.set(loc.x, y, loc.z);
+
+      // Stone base pillar
+      const pillar = new THREE.Mesh(stoneGeom, stoneMat);
+      pillar.position.y = 1.3;
+      pillar.castShadow = true;
+      pillar.receiveShadow = true;
+      group.add(pillar);
+
+      // Glowing amber lantern core
+      const lantern = new THREE.Mesh(lanternGeom, lanternMat);
+      lantern.position.y = 2.7;
+      group.add(lantern);
+
+      // Warm amber point light casting radius over surrounding landscape
+      const light = new THREE.PointLight(0xffa834, 3.2, 22, 1.4);
+      light.position.y = 2.7;
+      group.add(light);
+
+      this.scene.add(group);
+      this.waystones.push({ group, light, pos: group.position, label: loc.label });
+
+      // Register solid waystone in collision system
+      if (this.collisionSystem) {
+        this.collisionSystem.addCollider(loc.x, loc.z, 0.65, 3.2, 'waystone');
+      }
+    }
   }
 }

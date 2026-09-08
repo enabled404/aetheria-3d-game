@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
 export class Deployables {
-  constructor(scene) {
+  constructor(scene, collisionSystem = null) {
     this.scene = scene;
+    this.collisionSystem = collisionSystem;
     this.turrets = [];
     this.campfires = [];
     this.crates = [];
@@ -29,13 +30,19 @@ export class Deployables {
     }
 
     // Warm Fire Light
-    const light = new THREE.PointLight(0xff6600, 3.5, 16);
+    const light = new THREE.PointLight(0xff6600, 3.5, 18);
     light.position.set(0, 0.4, 0);
     group.add(light);
 
     this.scene.add(group);
     const campfire = { group, light, pos: pos.clone(), type: 'campfire' };
     this.campfires.push(campfire);
+
+    // Register physical collider
+    if (this.collisionSystem) {
+      this.collisionSystem.addCollider(pos.x, pos.z, 0.85, 1.2, 'campfire');
+    }
+
     return campfire;
   }
 
@@ -49,6 +56,12 @@ export class Deployables {
 
     const crate = { mesh, pos: pos.clone(), type: 'crate', items: {} };
     this.crates.push(crate);
+
+    // Register physical collider
+    if (this.collisionSystem) {
+      this.collisionSystem.addCollider(pos.x, pos.z, 0.95, 1.4, 'crate');
+    }
+
     return crate;
   }
 
@@ -74,11 +87,16 @@ export class Deployables {
     this.scene.add(group);
     const turret = { group, head, pos: pos.clone(), cooldown: 0, range: 20.0 };
     this.turrets.push(turret);
+
+    // Register physical collider
+    if (this.collisionSystem) {
+      this.collisionSystem.addCollider(pos.x, pos.z, 0.8, 1.8, 'turret');
+    }
+
     return turret;
   }
 
   update(dt, enemies, onTurretFire) {
-    // Turret automated target tracking
     for (const t of this.turrets) {
       if (t.cooldown > 0) t.cooldown -= dt;
 

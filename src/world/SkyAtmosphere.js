@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
+import { settings } from '../core/SettingsManager.js';
 
 export class SkyAtmosphere {
   constructor(scene) {
@@ -9,7 +10,7 @@ export class SkyAtmosphere {
 
     // 1. Directional Sunlight
     this.sunLight = new THREE.DirectionalLight(0xfff8ea, 2.4);
-    this.sunLight.castShadow = true;
+    this.sunLight.castShadow = settings.get('shadows') !== false;
     this.sunLight.shadow.mapSize.width = 2048;
     this.sunLight.shadow.mapSize.height = 2048;
     this.sunLight.shadow.camera.near = 10;
@@ -22,39 +23,59 @@ export class SkyAtmosphere {
     this.sunLight.shadow.bias = -0.0006;
     this.scene.add(this.sunLight);
 
-    // 2. Ambient Hemisphere Light (Sky & Ground Bounce)
+    // 2. Directional Moonlight (Illuminates entire island at night)
+    this.moonLight = new THREE.DirectionalLight(0x94c8ff, 0.0);
+    this.moonLight.castShadow = settings.get('shadows') !== false;
+    this.moonLight.shadow.mapSize.width = 1024;
+    this.moonLight.shadow.mapSize.height = 1024;
+    this.moonLight.shadow.camera.near = 10;
+    this.moonLight.shadow.camera.far = 450;
+    this.moonLight.shadow.camera.left = -d;
+    this.moonLight.shadow.camera.right = d;
+    this.moonLight.shadow.camera.top = d;
+    this.moonLight.shadow.camera.bottom = -d;
+    this.moonLight.shadow.bias = -0.0006;
+    this.scene.add(this.moonLight);
+
+    // 3. Ambient Hemisphere Light (Sky & Ground Bounce)
     this.ambientLight = new THREE.HemisphereLight(0xaad8ff, 0x475e3a, 0.85);
     this.scene.add(this.ambientLight);
 
-    // 3. Sky Dome Mesh with vertical gradient
+    // 4. Sky Dome Mesh with vertical gradient
     this.createSkyDome();
 
-    // 4. Visual Sun & Moon Orbs
+    // 5. Visual Sun & Moon Orbs
     const sunGeom = new THREE.SphereGeometry(14, 16, 16);
     this.sunMesh = new THREE.Mesh(sunGeom, new THREE.MeshBasicMaterial({ color: 0xfff6cf }));
     this.scene.add(this.sunMesh);
 
-    const moonGeom = new THREE.SphereGeometry(10, 16, 16);
-    this.moonMesh = new THREE.Mesh(moonGeom, new THREE.MeshBasicMaterial({ color: 0xdde8ff }));
+    const moonGeom = new THREE.SphereGeometry(12, 16, 16);
+    this.moonMesh = new THREE.Mesh(moonGeom, new THREE.MeshBasicMaterial({ color: 0xe6f0ff }));
     this.scene.add(this.moonMesh);
 
-    // 5. Starfield
+    // 6. Starfield
     this.createStarfield();
 
-    // 6. Puffy Volumetric Cloud Clusters (no flat boxes!)
+    // 7. Puffy Volumetric Cloud Clusters
     this.createPuffyClouds();
 
-    // Initialize background color so it is NEVER pitch black
+    // Initialize background color
     this.skyColor = new THREE.Color(0x6eb7ec);
     this.scene.background = this.skyColor;
+
+    // React to settings changes
+    settings.onChange((key, val) => {
+      if (key === 'shadows') {
+        this.sunLight.castShadow = !!val;
+        this.moonLight.castShadow = !!val;
+      }
+    });
   }
 
   createSkyDome() {
     const skyGeom = new THREE.SphereGeometry(480, 24, 16);
-    // Invert geometry so faces point inward
     skyGeom.scale(-1, 1, 1);
 
-    // Vertical gradient colors on sky dome
     const count = skyGeom.attributes.position.count;
     const colors = new Float32Array(count * 3);
     const pos = skyGeom.attributes.position;
@@ -62,7 +83,6 @@ export class SkyAtmosphere {
     for (let i = 0; i < count; i++) {
       const y = pos.getY(i);
       const t = Math.max(0, Math.min(1, (y + 50) / 450));
-      // Zenith (deep azure) -> Horizon (soft sky tint)
       const c = new THREE.Color(0x2278bf).lerp(new THREE.Color(0x9bd0f5), 1.0 - t);
       colors[i * 3 + 0] = c.r;
       colors[i * 3 + 1] = c.g;
@@ -120,7 +140,6 @@ export class SkyAtmosphere {
 
     const sphereGeom = new THREE.DodecahedronGeometry(1.0, 1);
 
-    // Build 24 organic, puffy cloud clusters
     for (let c = 0; c < 24; c++) {
       const cluster = new THREE.Group();
       const numPuffs = 6 + Math.floor(Math.random() * 6);
@@ -149,7 +168,6 @@ export class SkyAtmosphere {
   }
 
   update(dt, playerPosition) {
-    // Progress day/night cycle
     this.timeOfDay = (this.timeOfDay + dt / this.dayDuration) % 1.0;
 
     const angle = this.timeOfDay * Math.PI * 2 - Math.PI / 2;
@@ -159,6 +177,7 @@ export class SkyAtmosphere {
     const sunY = Math.sin(angle) * sunDist;
     const sunZ = Math.sin(angle * 0.4) * 60;
 
+    // Sun & Moon Positions
     this.sunMesh.position.set(playerPosition.x + sunX, playerPosition.y + sunY, playerPosition.z + sunZ);
     this.moonMesh.position.set(playerPosition.x - sunX, playerPosition.y - sunY, playerPosition.z - sunZ);
 
@@ -166,22 +185,27 @@ export class SkyAtmosphere {
     this.sunLight.target.position.copy(playerPosition);
     this.sunLight.target.updateMatrixWorld();
 
+    this.moonLight.position.copy(this.moonMesh.position);
+    this.moonLight.target.position.copy(playerPosition);
+    this.moonLight.target.updateMatrixWorld();
+
     // Center sky dome on player
     this.skyDome.position.copy(playerPosition);
 
     // Cloud drift
     this.cloudGroup.position.x = (this.cloudGroup.position.x + dt * 2.2) % 440;
 
-    // Atmospheric colors based on sun elevation
+    // Atmospheric calculations
     const sunElevation = sunY / sunDist; // 1 = noon, 0 = horizon, -1 = midnight
+    const nightGlow = settings.get('nightGlow') || 1.3;
 
     const daySkyColor = new THREE.Color(0x56aee8);
     const sunsetSkyColor = new THREE.Color(0xf69352);
-    const nightSkyColor = new THREE.Color(0x060d1e);
+    const nightSkyColor = new THREE.Color(0x101e38); // Ethereal sapphire night sky, NEVER pitch black
 
     const dayFogColor = new THREE.Color(0x89c4ed);
     const sunsetFogColor = new THREE.Color(0xf49564);
-    const nightFogColor = new THREE.Color(0x081024);
+    const nightFogColor = new THREE.Color(0x142340); // Soft moonlit fog
 
     if (sunElevation > 0.15) {
       // Full Daytime
@@ -189,7 +213,10 @@ export class SkyAtmosphere {
       this.scene.fog.color.copy(dayFogColor);
       this.sunLight.color.setHex(0xfff8ea);
       this.sunLight.intensity = Math.max(0.8, sunElevation * 2.5);
-      this.ambientLight.intensity = 0.85;
+      this.moonLight.intensity = 0.0;
+      this.ambientLight.color.setHex(0xaad8ff);
+      this.ambientLight.groundColor.setHex(0x475e3a);
+      this.ambientLight.intensity = 0.88;
       this.starMaterial.opacity = 0.0;
     } else if (sunElevation > -0.15) {
       // Golden Hour / Sunset / Dawn
@@ -197,20 +224,30 @@ export class SkyAtmosphere {
       this.skyColor.copy(sunsetSkyColor).lerp(daySkyColor, t);
       this.scene.fog.color.copy(sunsetFogColor).lerp(dayFogColor, t);
       this.sunLight.color.setHex(0xff7733).lerp(new THREE.Color(0xfff8ea), t);
-      this.sunLight.intensity = Math.max(0.3, t * 2.2);
-      this.ambientLight.intensity = 0.5 + t * 0.35;
-      this.starMaterial.opacity = (1.0 - t) * 0.4;
+      this.sunLight.intensity = Math.max(0.2, t * 2.2);
+      this.moonLight.intensity = (1.0 - t) * 0.6 * nightGlow;
+      this.ambientLight.intensity = (0.55 + t * 0.33);
+      this.starMaterial.opacity = (1.0 - t) * 0.5;
     } else {
-      // Nighttime
+      // Nighttime — High Visibility Moonlit Wonderland
       const nightFactor = Math.min(1.0, (-sunElevation - 0.15) / 0.3);
       this.skyColor.copy(sunsetSkyColor).lerp(nightSkyColor, nightFactor);
       this.scene.fog.color.copy(sunsetFogColor).lerp(nightFogColor, nightFactor);
-      this.sunLight.intensity = 0.08;
-      this.ambientLight.intensity = 0.24;
+
+      this.sunLight.intensity = 0.0;
+      // Active moonlight illuminating entire island
+      const moonElevation = Math.max(0.2, -sunElevation);
+      this.moonLight.intensity = THREE.MathUtils.clamp(moonElevation * 1.15 * nightGlow, 0.4, 1.4);
+
+      // Elevated ambient light with rich lunar indigo/cyan tones
+      this.ambientLight.color.setHex(0x5a78aa);
+      this.ambientLight.groundColor.setHex(0x283850);
+      this.ambientLight.intensity = THREE.MathUtils.clamp(0.68 * nightGlow, 0.45, 1.25);
+
       this.starMaterial.opacity = Math.min(0.95, nightFactor);
     }
 
-    // CRITICAL: Always update scene.background so sky is never a black void
+    // Always update scene.background so sky is never a void
     this.scene.background.copy(this.skyColor);
   }
 }

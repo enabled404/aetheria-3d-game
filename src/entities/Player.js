@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { HumanoidModel } from '../character/HumanoidModel.js';
 import { AnimationSystem } from '../character/AnimationSystem.js';
 import { CONFIG } from '../config.js';
+import { settings } from '../core/SettingsManager.js';
 
 export class Player {
   constructor(scene, assetManager) {
@@ -25,6 +26,31 @@ export class Player {
     this.isSwimming = false;
     this.isThrusterActive = false;
     this.isGroundSlamming = false;
+
+    // Personal Lumitech Illumination (Player character and immediate ground are always crisp & bright)
+    this.beacon = new THREE.PointLight(0x7fe3ff, 2.4, 28, 1.3);
+    this.beacon.position.set(0, 1.25, 0);
+    this.model.group.add(this.beacon);
+
+    // Forward chest lantern beam
+    this.chestLight = new THREE.SpotLight(0xaad8ff, 1.6, 36, Math.PI / 3.2, 0.45, 1.2);
+    this.chestLight.position.set(0, 1.25, 0.25);
+    this.chestLightTarget = new THREE.Object3D();
+    this.chestLightTarget.position.set(0, 1.25, 8.0);
+    this.model.group.add(this.chestLight);
+    this.model.group.add(this.chestLightTarget);
+    this.chestLight.target = this.chestLightTarget;
+
+    const beaconEnabled = settings.get('playerBeacon') !== false;
+    this.beacon.visible = beaconEnabled;
+    this.chestLight.visible = beaconEnabled;
+
+    settings.onChange((key, val) => {
+      if (key === 'playerBeacon') {
+        this.beacon.visible = !!val;
+        this.chestLight.visible = !!val;
+      }
+    });
 
     // Stats
     this.health = CONFIG.PLAYER.MAX_HEALTH;
@@ -82,7 +108,7 @@ export class Player {
     this.heal(healAmt);
   }
 
-  update(dt, input, cameraController, terrain, particleEngine = null, onGroundSlam = null) {
+  update(dt, input, cameraController, terrain, particleEngine = null, onGroundSlam = null, collisionSystem = null) {
     // 1. Movement Inputs from Camera
     const fwd = cameraController.getForwardVector();
     const right = cameraController.getRightVector();
@@ -199,17 +225,24 @@ export class Player {
     this.position.y += this.velocity.y * dt;
     this.position.z += this.velocity.z * dt;
 
-    if (this.position.y < groundH) {
+    // 5. Continuous Spatial Collision Resolution (Trees, Rocks, Crystals, Structures)
+    if (collisionSystem) {
+      collisionSystem.resolveCircleCollision(this.position, 0.45, this.velocity);
+    }
+
+    // Clamp floor
+    const updatedGroundH = terrain.getHeightAt(this.position.x, this.position.z);
+    if (this.position.y < updatedGroundH) {
       if (this.isGroundSlamming) {
         this.isGroundSlamming = false;
         onGroundSlam?.(this.position.clone());
       }
-      this.position.y = groundH;
+      this.position.y = updatedGroundH;
       this.velocity.y = 0;
       this.isGrounded = true;
     }
 
-    // 5. Update Animations & Face
+    // 6. Update Animations & Face
     this.animator.update(dt, this.velocity, this.isGrounded, this.isThrusterActive);
     this.model.update(dt, cameraController.camera.position);
   }

@@ -1,3 +1,5 @@
+import { settings } from '../core/SettingsManager.js';
+
 export class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -11,6 +13,19 @@ export class AudioEngine {
     this.beatStep = 0;
     this.chordStep = 0;
     this.currentMode = 'day'; // 'day' | 'night' | 'boss'
+
+    // Listen to real-time volume setting adjustments
+    settings.onChange((key, val) => {
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (key === 'masterVolume' && this.masterGain) {
+        this.masterGain.gain.setValueAtTime(val, now);
+      } else if (key === 'musicVolume' && this.musicGain) {
+        this.musicGain.gain.setValueAtTime(val, now);
+      } else if (key === 'sfxVolume' && this.sfxGain) {
+        this.sfxGain.gain.setValueAtTime(val, now);
+      }
+    });
   }
 
   init() {
@@ -20,15 +35,15 @@ export class AudioEngine {
 
     this.ctx = new AudioCtx();
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 0.65;
+    this.masterGain.gain.value = settings.get('masterVolume') ?? 0.75;
     this.masterGain.connect(this.ctx.destination);
 
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.24;
+    this.musicGain.gain.value = settings.get('musicVolume') ?? 0.35;
     this.musicGain.connect(this.masterGain);
 
     this.sfxGain = this.ctx.createGain();
-    this.sfxGain.gain.value = 0.45;
+    this.sfxGain.gain.value = settings.get('sfxVolume') ?? 0.70;
     this.sfxGain.connect(this.masterGain);
 
     this.isInitialized = true;
@@ -213,11 +228,13 @@ export class AudioEngine {
     this.beatTimer -= dt;
     if (this.beatTimer <= 0) {
       this.beatTimer = (this.currentMode === 'boss') ? 0.35 : 0.65;
-      if (this.currentMode === 'boss') {
-        if (this.beatStep % 2 === 0) this.playKick();
-        this.playHiHat();
-      } else if (this.currentMode === 'night') {
-        if (this.beatStep % 4 === 0) this.playHiHat();
+      if (settings.get('synthDrums') !== false) {
+        if (this.currentMode === 'boss') {
+          if (this.beatStep % 2 === 0) this.playKick();
+          this.playHiHat();
+        } else if (this.currentMode === 'night') {
+          if (this.beatStep % 4 === 0) this.playHiHat();
+        }
       }
       this.beatStep++;
     }

@@ -338,10 +338,32 @@
     }
     .craft-btn.disabled { background: #334155; color: #64748b; cursor: not-allowed; }
 
+    /* Settings Trigger Button */
+    #hud-settings-btn {
+      position: absolute;
+      top: 14px;
+      right: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #00e5ff;
+      cursor: pointer;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      transition: all 0.2s ease;
+    }
+    #hud-settings-btn:hover {
+      background: rgba(0, 229, 255, 0.2);
+      border-color: #00e5ff;
+      transform: translateY(-1px);
+    }
+
     /* Key Help Guide */
     #help-guide {
       position: absolute;
-      top: 14px;
+      top: 54px;
       right: 20px;
       font-size: 11px;
       line-height: 1.6;
@@ -354,6 +376,236 @@
       border-radius: 3px;
       font-family: inherit;
     }
+
+    /* Settings Modal */
+    #settings-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 15, 0.82);
+      backdrop-filter: blur(14px);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      pointer-events: auto;
+    }
+    .settings-panel {
+      width: 620px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border: 1px solid rgba(0, 229, 255, 0.4);
+      box-shadow: 0 0 45px rgba(0, 229, 255, 0.15), 0 20px 50px rgba(0, 0, 0, 0.8);
+      overflow-y: auto;
+    }
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 10px;
+    }
+    .settings-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #00e5ff;
+      letter-spacing: 1.5px;
+    }
+    .settings-title h2 { font-size: 16px; font-weight: 700; }
+    .settings-close-btn {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+      transition: color 0.15s;
+    }
+    .settings-close-btn:hover { color: #ff5577; }
+
+    /* Settings Tabs */
+    .settings-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+    }
+    .settings-tab {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .settings-tab:hover {
+      background: rgba(0, 229, 255, 0.12);
+      color: #cdeeff;
+    }
+    .settings-tab.active {
+      background: rgba(0, 229, 255, 0.22);
+      border-color: #00e5ff;
+      color: #00ffff;
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
+    }
+
+    /* Tab Content */
+    .settings-tab-content { display: none; flex-direction: column; gap: 14px; }
+    .settings-tab-content.active { display: flex; }
+
+    /* Setting Rows */
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(14, 22, 38, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .setting-label { display: flex; flex-direction: column; gap: 2px; }
+    .setting-label span { font-weight: 600; font-size: 13px; color: #e2e8f0; }
+    .setting-label small { font-size: 11px; color: #7f94af; }
+    .setting-control { display: flex; align-items: center; gap: 12px; }
+    .setting-val-display { min-width: 44px; text-align: right; font-size: 12px; font-weight: 700; color: #00ffff; font-family: monospace; }
+
+    /* Range Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 140px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #00e5ff;
+      box-shadow: 0 0 8px #00e5ff;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 22px;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: rgba(255, 255, 255, 0.18);
+      transition: 0.25s;
+      border-radius: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #cbd5e1;
+      transition: 0.25s;
+      border-radius: 50%;
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: #00b0ff;
+      box-shadow: 0 0 10px rgba(0, 176, 255, 0.4);
+    }
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+      background-color: #ffffff;
+    }
+
+    /* Select Dropdown */
+    .setting-select {
+      background: #0d1527;
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      color: #e2e8f0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Keybinds Grid */
+    .keybinds-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .keybind-card {
+      background: rgba(14, 22, 38, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .keybind-card kbd {
+      background: rgba(0, 229, 255, 0.15);
+      color: #00ffff;
+      border: 1px solid rgba(0, 229, 255, 0.35);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .keybind-card span { color: #94a3b8; }
+
+    /* Footer Buttons */
+    .settings-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 12px;
+    }
+    .settings-pri-btn {
+      background: #00e5ff;
+      border: none;
+      color: #040914;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 0 16px rgba(0, 229, 255, 0.35);
+      transition: all 0.15s;
+    }
+    .settings-pri-btn:hover { background: #66efff; transform: translateY(-1px); }
+    .settings-sec-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #94a3b8;
+      font-size: 12px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .settings-sec-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.15); }
   </style>
 </head>
 <body>
@@ -473,6 +725,7 @@
       <div><kbd>F5</kbd> Quick Save • <kbd>F9</kbd> Quick Load</div>
       <div><kbd>Tab</kbd> Crafting • <kbd>M</kbd> Full Island Map</div>
       <div><kbd>V</kbd> Toggle 1st / 3rd Person View</div>
+      <div><kbd>Esc</kbd> / <kbd>O</kbd> Settings & Pause Menu</div>
     </div>
   </div>
 
