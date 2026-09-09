@@ -10,6 +10,7 @@ export class CombatManager {
     this.damageNumbers = new DamageNumbers(scene);
 
     this.projectiles = [];
+    this.enemyProjectiles = [];
     this.boulders = [];
     this.shockwaves = [];
     this.stasisBubbles = [];
@@ -133,6 +134,24 @@ export class CombatManager {
     });
     this.cameraController.addShake(0.18);
     this.particleEngine?.spawnSparks(origin, 18, 0xff00e5, 8.0);
+  }
+
+  spawnEnemyProjectile(origin, dir, damage = 18, type = 'dark_orb') {
+    const isDark = (type === 'dark_orb');
+    const geom = new THREE.SphereGeometry(isDark ? 0.35 : 0.25, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({ color: isDark ? 0xb026ff : 0x00ffff });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.copy(origin);
+    this.scene.add(mesh);
+
+    this.enemyProjectiles.push({
+      mesh,
+      vel: dir.clone().multiplyScalar(isDark ? 22.0 : 28.0),
+      damage,
+      radius: 0.5,
+      life: 3.5,
+      type
+    });
   }
 
   performMeleeAttack(player, onHitTarget) {
@@ -303,6 +322,35 @@ export class CombatManager {
       if (b.life <= 0) {
         this.scene.remove(b.mesh);
         this.boulders.splice(i, 1);
+      }
+    }
+
+    // 5. Update Enemy Projectiles (Dark Orbs / Wyrm Bolts)
+    for (let i = this.enemyProjectiles.length - 1; i >= 0; i--) {
+      const ep = this.enemyProjectiles[i];
+      ep.life -= dt;
+      ep.mesh.position.addScaledVector(ep.vel, dt);
+
+      // Check collision with player
+      const playerCenter = player.position.clone().add(new THREE.Vector3(0, 1.1, 0));
+      if (ep.mesh.position.distanceTo(playerCenter) < 1.4) {
+        if (this.isParrying) {
+          this.particleEngine?.spawnSparks(playerCenter, 16, 0x00ffff, 8.0);
+          this.damageNumbers.spawn('DEFLECT!', playerCenter, true);
+          this.cameraController.addShake(0.1);
+        } else {
+          onPlayerTakeDamage?.(ep.damage);
+          this.particleEngine?.spawnSparks(playerCenter, 14, ep.type === 'dark_orb' ? 0xb026ff : 0x00ffff, 6.0);
+          this.cameraController.addShake(0.18);
+        }
+        this.scene.remove(ep.mesh);
+        this.enemyProjectiles.splice(i, 1);
+        continue;
+      }
+
+      if (ep.life <= 0) {
+        this.scene.remove(ep.mesh);
+        this.enemyProjectiles.splice(i, 1);
       }
     }
   }

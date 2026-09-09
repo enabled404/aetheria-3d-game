@@ -33,6 +33,29 @@ export class HUD {
     this.toastTimer = 0;
 
     this.promptElem = document.getElementById('context-prompt');
+
+    // Weather Pill Elements
+    this.weatherPill = document.getElementById('weather-pill');
+    this.weatherIcon = document.getElementById('weather-icon');
+    this.weatherLabel = document.getElementById('weather-label');
+    this.weatherDetail = document.getElementById('weather-detail');
+  }
+
+  setWeatherStatus(status) {
+    if (!this.weatherPill) {
+      this.weatherPill = document.getElementById('weather-pill');
+      this.weatherIcon = document.getElementById('weather-icon');
+      this.weatherLabel = document.getElementById('weather-label');
+      this.weatherDetail = document.getElementById('weather-detail');
+    }
+    if (!status || !this.weatherPill) return;
+    if (this.weatherIcon) this.weatherIcon.textContent = status.icon;
+    if (this.weatherLabel) {
+      this.weatherLabel.textContent = status.label;
+      this.weatherLabel.style.color = status.color || '#00ffff';
+    }
+    if (this.weatherDetail) this.weatherDetail.textContent = status.detail;
+    this.weatherPill.style.borderColor = status.color || 'rgba(0, 229, 255, 0.35)';
   }
 
   setAiming(isAiming) {
@@ -87,7 +110,7 @@ export class HUD {
     this.vignetteOpacity = 0.85;
   }
 
-  update(player, bossTitan, combatManager, enemies = [], npcs = [], yaw = 0, isSprinting = false, dt = 0.016) {
+  update(player, bossTitan, combatManager, enemies = [], npcs = [], yaw = 0, isSprinting = false, dt = 0.016, riftPos = null) {
     // 1. Bars
     if (this.hpBar) {
       const hpPct = Math.max(0, (player.health / player.maxHealth) * 100);
@@ -172,11 +195,11 @@ export class HUD {
 
     // 8. Mini-Radar (clean, accurate orientation)
     if (this.radarCtx && this.radarCanvas) {
-      this.renderMiniRadar(player.position, enemies, npcs, bossTitan, yaw);
+      this.renderMiniRadar(player.position, enemies, npcs, bossTitan, yaw, riftPos);
     }
   }
 
-  renderMiniRadar(playerPos, enemies, npcs, bossTitan, yaw) {
+  renderMiniRadar(playerPos, enemies, npcs, bossTitan, yaw, riftPos = null) {
     const ctx = this.radarCtx;
     const w = this.radarCanvas.width;
     const h = this.radarCanvas.height;
@@ -247,6 +270,20 @@ export class HUD {
         ctx.beginPath();
         ctx.arc(e.px, e.py, 4, 0, Math.PI * 2);
         ctx.fill();
+      }
+    }
+
+    // Active Dimensional Void Rift
+    if (riftPos) {
+      const r = toRadar(riftPos);
+      if (r.dist < radarRange) {
+        ctx.fillStyle = '#b026ff';
+        ctx.beginPath();
+        ctx.arc(r.px, r.py, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
       }
     }
 

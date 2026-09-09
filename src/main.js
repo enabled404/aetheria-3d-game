@@ -30,6 +30,10 @@ import { BuildGrid } from './building/BuildGrid.js';
 import { Deployables } from './building/Deployables.js';
 import { AudioEngine } from './audio/AudioEngine.js';
 
+import { WeatherSystem } from './world/WeatherSystem.js';
+import { RiftEventSystem } from './world/RiftEventSystem.js';
+import { WorldHazards } from './world/WorldHazards.js';
+
 import { HUD } from './ui/HUD.js';
 import { DialogueBox } from './ui/DialogueBox.js';
 import { DialogueSystem } from './dialogue/DialogueSystem.js';
@@ -56,11 +60,15 @@ const particleEngine = new ParticleEngine(renderer.scene);
 const saveSystem = new SaveSystem();
 const collisionSystem = new CollisionSystem();
 
-// 2. Initialize World
+// 2. Initialize World & Atmosphere
 const terrain = new Terrain(renderer.scene);
 const ocean = new Ocean(renderer.scene);
 const sky = new SkyAtmosphere(renderer.scene);
 const foliage = new FoliageSystem(renderer.scene, terrain, collisionSystem);
+
+const weatherSystem = new WeatherSystem(renderer.scene, terrain, particleEngine, audioEngine, cameraController);
+const riftEventSystem = new RiftEventSystem(renderer.scene, terrain, particleEngine, audioEngine);
+const worldHazards = new WorldHazards(renderer.scene, terrain, particleEngine, audioEngine, cameraController);
 
 // 3. Initialize Player
 const player = new Player(renderer.scene, assetManager);
@@ -73,12 +81,17 @@ const npcs = [
   new Kaelen(renderer.scene, assetManager, new THREE.Vector3(55, terrain.getHeightAt(55, -25), -25))
 ];
 
-// 5. Initialize Boss & Hostiles
+// 5. Initialize Boss & High-Threat Hostiles
 const bossTitan = new BossTitan(renderer.scene, terrain, collisionSystem);
 const enemies = [
-  new Enemy(renderer.scene, terrain, 'grunt', new THREE.Vector3(35, terrain.getHeightAt(35, 90), 90)),
-  new Enemy(renderer.scene, terrain, 'brute', new THREE.Vector3(-50, terrain.getHeightAt(-50, 110), 110)),
-  new Enemy(renderer.scene, terrain, 'stalker', new THREE.Vector3(80, terrain.getHeightAt(80, 20), 20))
+  new Enemy(renderer.scene, terrain, 'grunt', new THREE.Vector3(35, terrain.getHeightAt(35, 90), 90), audioEngine, particleEngine),
+  new Enemy(renderer.scene, terrain, 'brute', new THREE.Vector3(-50, terrain.getHeightAt(-50, 110), 110), audioEngine, particleEngine),
+  new Enemy(renderer.scene, terrain, 'stalker', new THREE.Vector3(80, terrain.getHeightAt(80, 20), 20), audioEngine, particleEngine),
+  new Enemy(renderer.scene, terrain, 'phantom', new THREE.Vector3(45, terrain.getHeightAt(45, -55), -55), audioEngine, particleEngine),
+  new Enemy(renderer.scene, terrain, 'berserker', new THREE.Vector3(-65, terrain.getHeightAt(-65, -35), -35), audioEngine, particleEngine),
+  new Enemy(renderer.scene, terrain, 'wyrm', new THREE.Vector3(20, terrain.getHeightAt(20, 25) + 16, 25), audioEngine, particleEngine),
+  new Enemy(renderer.scene, terrain, 'phantom', new THREE.Vector3(-30, terrain.getHeightAt(-30, 75), 75), audioEngine, particleEngine),
+  new Enemy(renderer.scene, terrain, 'berserker', new THREE.Vector3(70, terrain.getHeightAt(70, 80), 80), audioEngine, particleEngine)
 ];
 
 const wildlife = [
@@ -431,29 +444,100 @@ function animate() {
     npc.update(dt, player.position, cameraController.camera.position);
   }
 
-  // Update Boss Titan
+  // Update Dynamic Weather System & Ground Lightning
+  weatherSystem.update(dt, player.position, sky, (strikePos) => {
+    // Lightning strike shockwave damage to nearby entities
+    for (const e of enemies) {
+      if (!e.isDead && e.group.position.distanceTo(strikePos) < 12.0) {
+        e.takeDamage(75);
+        combatManager.damageNumbers.spawn(75, e.group.position, true);
+      }
+    }
+    if (player.position.distanceTo(strikePos) < 8.0) {
+      player.takeDamage(25);
+      hud.flashDamage();
+      hud.showToast('⚡ Struck by Storm Lightning!');
+    }
+  });
+  hud.setWeatherStatus(weatherSystem.getWeatherStatus());
+
+  // Blood Moon Enemy Empowerment
+  for (const enemy of enemies) {
+    enemy.setBloodMoonEmpowered(weatherSystem.isBloodMoon);
+  }
+
+  // Update Interactive World Hazards (Crystals & Flora)
+  worldHazards.update(dt, player, (healAmount) => {
+    player.heal(healAmount);
+    hud.showToast('🌿 Healing Spores Restored +35 HP');
+  });
+
+  // Update Dimensional Void Rift Incursions
+  riftEventSystem.update(
+    dt,
+    player.position,
+    (riftPos) => {
+      // Spawn rift guardians
+      enemies.push(new Enemy(renderer.scene, terrain, 'phantom', riftPos.clone().add(new THREE.Vector3(7, 0, 7)), audioEngine, particleEngine));
+      enemies.push(new Enemy(renderer.scene, terrain, 'phantom', riftPos.clone().add(new THREE.Vector3(-7, 0, -7)), audioEngine, particleEngine));
+      enemies.push(new Enemy(renderer.scene, terrain, 'berserker', riftPos.clone().add(new THREE.Vector3(0, 0, 8)), audioEngine, particleEngine));
+    },
+    (msg) => hud.showToast(msg),
+    (rewardPos) => {
+      lootSystem.spawnDrop(rewardPos, 'titan_core');
+      lootSystem.spawnDrop(rewardPos, 'chrono_shard');
+      lootSystem.spawnDrop(rewardPos, 'vitality_orb');
+      player.addXp(150);
+      hud.showToast('🏆 Void Rift Shattered! Vault Harvested (+150 XP)');
+    }
+  );
+
+  // Update Boss Titan (Multi-Phase: Shockwaves, Boulders, Minions, Meteors)
   bossTitan.update(
     dt,
     player.position,
     (shockPos) => combatManager.spawnBossShockwave(shockPos),
-    (from, to) => combatManager.spawnBossBoulder(from, to)
+    (from, to) => combatManager.spawnBossBoulder(from, to),
+    (summonPos) => {
+      enemies.push(new Enemy(renderer.scene, terrain, 'grunt', summonPos.clone().add(new THREE.Vector3(4, 0, 4)), audioEngine, particleEngine));
+      enemies.push(new Enemy(renderer.scene, terrain, 'stalker', summonPos.clone().add(new THREE.Vector3(-4, 0, -4)), audioEngine, particleEngine));
+      hud.showToast('⚠️ The Titan summons Void Reinforcements!');
+    },
+    (meteorPos) => {
+      combatManager.spawnBossShockwave(meteorPos);
+      particleEngine.spawnSparks(meteorPos, 35, 0xff3300, 16.0);
+      audioEngine.playExplosionSound();
+      cameraController.addShake(0.45);
+      if (player.position.distanceTo(meteorPos) < 7.5) {
+        player.takeDamage(36);
+        hud.flashDamage();
+        hud.showToast('☄️ Magma Meteor Impact!');
+      }
+    }
   );
 
-  // Update Hostile Enemies with Obstacle Collisions & Billboard HP
+  // Update Hostile Enemies with Obstacle Collisions, Billboard HP & Projectiles
   for (const enemy of enemies) {
-    enemy.update(dt, player.position, (dmg) => {
-      if (combatManager.isParrying) {
-        audioEngine.playParrySound();
-        combatManager.damageNumbers.spawn('PARRY!', player.position, true);
-        particleEngine.spawnSparks(player.position, 18, 0x00ffff, 9.0);
-        cameraController.addShake(0.1);
-      } else {
-        player.takeDamage(dmg);
-        hud.flashDamage();
-        particleEngine.spawnSparks(player.position, 12, 0xff2244, 6.0);
-        cameraController.addShake(0.2);
-      }
-    }, collisionSystem, cameraController.camera);
+    enemy.update(
+      dt,
+      player.position,
+      (dmg) => {
+        if (combatManager.isParrying) {
+          audioEngine.playParrySound();
+          combatManager.damageNumbers.spawn('PARRY!', player.position, true);
+          particleEngine.spawnSparks(player.position, 18, 0x00ffff, 9.0);
+          cameraController.addShake(0.1);
+        } else {
+          player.takeDamage(dmg);
+          hud.flashDamage();
+          particleEngine.spawnSparks(player.position, 12, 0xff2244, 6.0);
+          cameraController.addShake(0.2);
+        }
+      },
+      collisionSystem,
+      cameraController.camera,
+      (origin, dir, dmg, type) => combatManager.spawnEnemyProjectile(origin, dir, dmg, type)
+    );
   }
 
   // Update Wildlife
@@ -480,11 +564,13 @@ function animate() {
       cameraController.addShake(0.25);
     },
     (killedObj, xp) => {
-      player.addXp(xp);
+      const bonusXp = weatherSystem.isBloodMoon ? xp * 2 : xp;
+      player.addXp(bonusXp);
       lootSystem.spawnDrop(killedObj.group.position, killedObj.type);
+      if (weatherSystem.isBloodMoon) lootSystem.spawnDrop(killedObj.group.position, 'chrono_shard');
       questEngine.onEnemyDefeated(killedObj.type, player, audioEngine, hud);
       particleEngine.spawnSparks(player.position, 20, 0xffd700, 7.0);
-      hud.showToast(`✨ Gained +${xp} XP!`);
+      hud.showToast(`✨ Gained +${bonusXp} XP!`);
     }
   );
 
@@ -528,7 +614,8 @@ function animate() {
       const angle = currentAimDir.angleTo(toBoss.clone().normalize());
       if (angle < 0.18 && dist < minAimDist) {
         minAimDist = dist;
-        lockedTarget = { name: 'ANCIENT TITAN', distance: dist, isHostile: true, icon: '👑' };
+        const phaseLabel = bossTitan.phase === 3 ? 'APEX TITAN [OVERDRIVE]' : (bossTitan.phase === 2 ? 'ENRAGED TITAN' : 'ANCIENT TITAN');
+        lockedTarget = { name: phaseLabel, distance: dist, isHostile: true, icon: '👑' };
       }
     }
   }
@@ -539,9 +626,10 @@ function animate() {
     const dist = toEnemy.length();
     if (dist < 65.0) {
       const angle = currentAimDir.angleTo(toEnemy.clone().normalize());
-      if (angle < 0.15 && dist < minAimDist) {
+      if (angle < 0.16 && dist < minAimDist) {
         minAimDist = dist;
-        lockedTarget = { name: enemy.type.toUpperCase(), distance: dist, isHostile: true, icon: '🎯' };
+        const enemyIcon = (enemy.type === 'phantom') ? '🔮' : (enemy.type === 'berserker' ? '🛡️' : (enemy.type === 'wyrm' ? '🐉' : '🎯'));
+        lockedTarget = { name: enemy.type.toUpperCase(), distance: dist, isHostile: true, icon: enemyIcon };
       }
     }
   }
@@ -563,7 +651,7 @@ function animate() {
 
   // Update UI & Compass & Mini-Radar
   const isSprinting = inputManager.isKeyDown('ShiftLeft') && player.stamina > 5;
-  hud.update(player, bossTitan, combatManager, enemies, npcs, cameraController.yaw, isSprinting, dt);
+  hud.update(player, bossTitan, combatManager, enemies, npcs, cameraController.yaw, isSprinting, dt, riftEventSystem.getRiftPosition());
   compass.update(cameraController.yaw);
 
   // Clear per-frame input edge triggers

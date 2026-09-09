@@ -215,6 +215,142 @@ export class AudioEngine {
     osc.stop(this.ctx.currentTime + 0.35);
   }
 
+  playThunderClap(isClose = true) {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+
+    // 1. Initial Lightning Crack (White Noise burst)
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.15);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(isClose ? 0.75 : 0.35, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    noise.connect(noiseGain);
+    noiseGain.connect(this.sfxGain);
+    noise.start(now);
+
+    // 2. Rolling Thunder Low-Frequency Rumble
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(isClose ? 75 : 55, now);
+    osc.frequency.exponentialRampToValueAtTime(22, now + 2.2);
+
+    g.gain.setValueAtTime(isClose ? 0.65 : 0.35, now);
+    g.gain.linearRampToValueAtTime(isClose ? 0.45 : 0.25, now + 0.4);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 2.4);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(140, now);
+    filter.frequency.exponentialRampToValueAtTime(60, now + 2.0);
+
+    osc.connect(filter);
+    filter.connect(g);
+    g.connect(this.sfxGain);
+
+    osc.start(now);
+    osc.stop(now + 2.4);
+  }
+
+  playWarpSound() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(1400, now + 0.12);
+    osc.frequency.exponentialRampToValueAtTime(120, now + 0.32);
+
+    g.gain.setValueAtTime(0.01, now);
+    g.gain.linearRampToValueAtTime(0.35, now + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(g);
+    g.connect(this.sfxGain);
+
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }
+
+  playBerserkerRoar() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(90, now);
+    osc.frequency.linearRampToValueAtTime(160, now + 0.2);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 0.65);
+
+    g.gain.setValueAtTime(0.45, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
+    osc.connect(g);
+    g.connect(this.sfxGain);
+
+    osc.start(now);
+    osc.stop(now + 0.65);
+  }
+
+  playWyrmScreech() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(900, now);
+    osc.frequency.exponentialRampToValueAtTime(1750, now + 0.15);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.45);
+
+    g.gain.setValueAtTime(0.28, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+    osc.connect(g);
+    g.connect(this.sfxGain);
+
+    osc.start(now);
+    osc.stop(now + 0.45);
+  }
+
+  playExplosionSound() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.4);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.25));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(450, now);
+    filter.frequency.exponentialRampToValueAtTime(80, now + 0.4);
+
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.8, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+    noise.connect(filter);
+    filter.connect(g);
+    g.connect(this.sfxGain);
+
+    noise.start(now);
+  }
+
   playStasisSound() {
     if (!this.isInitialized) return;
     const osc = this.ctx.createOscillator();

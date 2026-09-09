@@ -85,6 +85,46 @@
       pointer-events: auto;
     }
 
+    /* Top Weather Forecast Status Pill */
+    #weather-pill {
+      position: absolute;
+      top: 14px;
+      right: 140px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 20px;
+      background: rgba(8, 14, 26, 0.78);
+      border: 1px solid rgba(0, 229, 255, 0.35);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+      pointer-events: auto;
+      transition: all 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+    #weather-icon {
+      font-size: 16px;
+    }
+    .weather-info {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+    #weather-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #00ffff;
+      text-transform: uppercase;
+    }
+    #weather-detail {
+      font-size: 9px;
+      color: #8faecf;
+      letter-spacing: 0.3px;
+    }
+
     /* Vitals Status Bars */
     #vitals {
       position: absolute;
@@ -1027,6 +1067,15 @@
     <!-- Mini-Radar -->
     <div id="mini-radar-wrap">
       <canvas id="mini-radar-canvas" width="120" height="120"></canvas>
+    </div>
+
+    <!-- Top Weather Status Pill -->
+    <div id="weather-pill">
+      <span id="weather-icon">☀️</span>
+      <div class="weather-info">
+        <div id="weather-label">Temperate Skies</div>
+        <div id="weather-detail">Calm Atmosphere</div>
+      </div>
     </div>
 
     <!-- Contextual Prompt -->
