@@ -663,4 +663,4 @@ function animate() {
 
 // Launch Engine
 requestAnimationFrame(animate);
-console.log(`🌟 Aetheria ${CONFIG.VERSION} S-Tier RPG Engine Booted Successfully.`);
+console.log(`🌟 Aetheria ${CONFIG.VERSION} online.`);

@@ -1,12 +1,12 @@
-# Aetheria 3.5 — The Ultimate S-Tier 3D Open-World RPG
+# Aetheria
 
-A next-generation, high-performance 3D open-world survival RPG built with Three.js, Vite, and the Web Audio / Speech API.
+A procedural 3D open-world RPG running natively in the browser with zero asset downloads. Built with Three.js, Vite, and the Web Audio API.
 
-🎮 **Live Production on Vercel**: [https://aetheria-game-eta.vercel.app](https://aetheria-game-eta.vercel.app)
+🎮 **Live**: [https://aetheria-game-eta.vercel.app](https://aetheria-game-eta.vercel.app)
 
 ---
 
-## 🌟 What Makes Aetheria 3.5 an S-Tier Breakthrough
+## 🌟 Core Features
 
 ### 1. ✨ High-Performance Particle Engine
 - **Combat Particles**: Fiery yellow-orange sparks on melee strikes, electric cyan sparks on parries, and magenta explosions on charged plasma impacts.

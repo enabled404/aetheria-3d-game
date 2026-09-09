@@ -163,7 +163,7 @@ export class QuestEngine {
           <div class="victory-stats">
             <div class="v-stat"><span>Time Incursion</span><strong>Complete</strong></div>
             <div class="v-stat"><span>Titan Core</span><strong>Recovered</strong></div>
-            <div class="v-stat"><span>Island Rank</span><strong style="color:#00ffff;">S-Tier Chronomancer</strong></div>
+            <div class="v-stat"><span>Island Rank</span><strong style="color:#00ffff;">Apex Chronomancer</strong></div>
           </div>
           <button id="victory-continue-btn" class="settings-pri-btn" style="margin-top: 20px; width: 100%; font-size: 14px;">
             Continue Exploring Island
