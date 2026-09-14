@@ -195,11 +195,11 @@ export class HUD {
 
     // 8. Mini-Radar (clean, accurate orientation)
     if (this.radarCtx && this.radarCanvas) {
-      this.renderMiniRadar(player.position, enemies, npcs, bossTitan, yaw, riftPos);
+      this.renderMiniRadar(player.position, enemies, npcs, bossTitan, yaw, riftPos, airplanes);
     }
   }
 
-  renderMiniRadar(playerPos, enemies, npcs, bossTitan, yaw, riftPos = null) {
+  renderMiniRadar(playerPos, enemies, npcs, bossTitan, yaw, riftPos = null, airplanes = []) {
     const ctx = this.radarCtx;
     const w = this.radarCanvas.width;
     const h = this.radarCanvas.height;
@@ -273,17 +273,19 @@ export class HUD {
       }
     }
 
-    // Active Dimensional Void Rift
-    if (riftPos) {
-      const r = toRadar(riftPos);
-      if (r.dist < radarRange) {
-        ctx.fillStyle = '#b026ff';
-        ctx.beginPath();
-        ctx.arc(r.px, r.py, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+    // Aeroplanes / Airport
+    if (airplanes) {
+      for (const plane of airplanes) {
+        const pl = toRadar(plane.group.position);
+        if (pl.dist < radarRange) {
+          ctx.fillStyle = '#00e5ff';
+          ctx.beginPath();
+          ctx.arc(pl.px, pl.py, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
       }
     }
 

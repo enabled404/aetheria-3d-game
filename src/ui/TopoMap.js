@@ -71,6 +71,24 @@ export class TopoMap {
       y: ((wz + halfSize) / this.terrain.size) * h
     });
 
+    // Airport Runway
+    const rStart = worldToMap(-110, -120);
+    const rEnd = worldToMap(-110, 60);
+    this.ctx.strokeStyle = '#1e2430';
+    this.ctx.lineWidth = 7;
+    this.ctx.beginPath();
+    this.ctx.moveTo(rStart.x, rStart.y);
+    this.ctx.lineTo(rEnd.x, rEnd.y);
+    this.ctx.stroke();
+
+    this.ctx.strokeStyle = '#00e5ff';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.stroke();
+
+    this.ctx.fillStyle = '#00ffff';
+    this.ctx.font = 'bold 11px monospace';
+    this.ctx.fillText('🛫 AERODROME', rStart.x - 42, (rStart.y + rEnd.y) / 2);
+
     // Summit Altar
     const altar = worldToMap(0, 0);
     this.ctx.fillStyle = '#ffaa00';

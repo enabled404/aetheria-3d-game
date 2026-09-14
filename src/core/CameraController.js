@@ -168,4 +168,72 @@ export class CameraController {
       this.camera.lookAt(focusTarget);
     }
   }
+
+  // --- Flight Simulation Camera Modes ---
+  toggleFlightCamera() {
+    this.flightCameraMode = (this.flightCameraMode === 'chase') ? 'cockpit' : 'chase';
+    return this.flightCameraMode;
+  }
+
+  updateFlightCamera(dt, airplane, terrainHeightFunc = null) {
+    if (!airplane) return;
+
+    if (!this.flightCameraMode) this.flightCameraMode = 'chase';
+
+    const fwd = airplane.getForwardVector();
+    const up = airplane.getUpVector();
+    const right = airplane.getRightVector();
+    const planePos = airplane.group.position;
+    const speed = airplane.speed || 0;
+
+    if (this.flightCameraMode === 'cockpit') {
+      // First-person cockpit perspective
+      const eyePos = planePos.clone()
+        .add(up.clone().multiplyScalar(0.72))
+        .add(fwd.clone().multiplyScalar(1.35));
+
+      this.camera.position.copy(eyePos);
+      const lookTarget = eyePos.clone().add(fwd.clone().multiplyScalar(50.0));
+      this.camera.lookAt(lookTarget);
+
+      // Match aircraft roll in cockpit view
+      this.camera.up.copy(up);
+
+      // FOV dynamically widens with speed
+      const targetFov = 72 + Math.min(18, (speed / 50.0) * 16);
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, dt * 4.0);
+      this.camera.updateProjectionMatrix();
+
+    } else {
+      // Third-person aerodynamic chase camera
+      const chaseDist = 11.5 + Math.min(6.5, (speed / 50.0) * 6.5);
+      const chaseHeight = 3.4;
+
+      const targetCamPos = planePos.clone()
+        .add(fwd.clone().multiplyScalar(-chaseDist))
+        .add(up.clone().multiplyScalar(chaseHeight));
+
+      // Terrain clearance
+      if (terrainHeightFunc) {
+        const groundH = terrainHeightFunc(targetCamPos.x, targetCamPos.z) + 1.2;
+        if (targetCamPos.y < groundH) targetCamPos.y = groundH;
+      }
+
+      // Smooth lag behind the plane
+      this.currentPos.lerp(targetCamPos, Math.min(1.0, dt * 9.0));
+      this.camera.position.copy(this.currentPos);
+
+      const lookAhead = planePos.clone().add(fwd.clone().multiplyScalar(18.0));
+      this.camera.lookAt(lookAhead);
+
+      // Aerodynamic camera roll banking
+      const targetUp = new THREE.Vector3(0, 1, 0).lerp(up, 0.45).normalize();
+      this.camera.up.lerp(targetUp, Math.min(1.0, dt * 7.0));
+
+      const targetFov = 70 + Math.min(18, (speed / 50.0) * 16);
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, dt * 4.0);
+      this.camera.updateProjectionMatrix();
+    }
+  }
 }
+

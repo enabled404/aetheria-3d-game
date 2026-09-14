@@ -117,6 +117,26 @@ export class CombatManager {
     this.particleEngine?.spawnSparks(origin, 6, 0x00ffff, 4.0);
   }
 
+  spawnPlasmaBolt(origin, velocity, damage = 35, isPlayer = true) {
+    const geom = new THREE.CylinderGeometry(0.08, 0.08, 1.6, 6);
+    geom.rotateX(Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.copy(origin);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), velocity.clone().normalize());
+
+    this.scene.add(mesh);
+    this.projectiles.push({
+      mesh,
+      vel: velocity,
+      damage: damage,
+      radius: 0.85,
+      life: 3.5,
+      isAOE: false
+    });
+    this.particleEngine?.spawnSparks(origin, 4, 0x00ffff, 6.0);
+  }
+
   fireChargedOrb(origin, forward) {
     const geom = new THREE.SphereGeometry(0.65, 12, 12);
     const mat = new THREE.MeshBasicMaterial({ color: 0xff00e5 });

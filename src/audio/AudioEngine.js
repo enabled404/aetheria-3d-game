@@ -13,6 +13,10 @@ export class AudioEngine {
     this.beatStep = 0;
     this.chordStep = 0;
     this.currentMode = 'day'; // 'day' | 'night' | 'boss'
+    this.planeEngineWhine = null;
+    this.planeEngineRumble = null;
+    this.planeEngineGain = null;
+    this.planeFilter = null;
 
     // Listen to real-time volume setting adjustments
     settings.onChange((key, val) => {
@@ -546,4 +550,158 @@ export class AudioEngine {
       this.chordStep++;
     }
   }
+
+  // --- Flight Audio Synthesis Engine ---
+  startPlaneEngine(initialThrottle = 0.2) {
+    if (!this.isInitialized) return;
+    this.stopPlaneEngine();
+
+    const now = this.ctx.currentTime;
+
+    // Master plane engine gain
+    this.planeEngineGain = this.ctx.createGain();
+    this.planeEngineGain.gain.setValueAtTime(0.001, now);
+    this.planeEngineGain.gain.exponentialRampToValueAtTime(0.35, now + 1.2);
+
+    // Resonant lowpass filter for engine body
+    this.planeFilter = this.ctx.createBiquadFilter();
+    this.planeFilter.type = 'lowpass';
+    this.planeFilter.frequency.setValueAtTime(380, now);
+    this.planeFilter.Q.setValueAtTime(2.5, now);
+
+    // Low rumble oscillator (sub-bass / pistons / rotor)
+    this.planeEngineRumble = this.ctx.createOscillator();
+    this.planeEngineRumble.type = 'sawtooth';
+    this.planeEngineRumble.frequency.setValueAtTime(52, now);
+
+    // High turbine spool whine oscillator
+    this.planeEngineWhine = this.ctx.createOscillator();
+    this.planeEngineWhine.type = 'sine';
+    this.planeEngineWhine.frequency.setValueAtTime(220, now);
+
+    const whineGain = this.ctx.createGain();
+    whineGain.gain.setValueAtTime(0.18, now);
+
+    const rumbleGain = this.ctx.createGain();
+    rumbleGain.gain.setValueAtTime(0.28, now);
+
+    this.planeEngineRumble.connect(rumbleGain);
+    rumbleGain.connect(this.planeFilter);
+
+    this.planeEngineWhine.connect(whineGain);
+    whineGain.connect(this.planeFilter);
+
+    this.planeFilter.connect(this.planeEngineGain);
+    this.planeEngineGain.connect(this.sfxGain);
+
+    this.planeEngineRumble.start();
+    this.planeEngineWhine.start();
+  }
+
+  updatePlaneEngine(throttle, speed) {
+    if (!this.ctx || !this.planeEngineGain) return;
+    const now = this.ctx.currentTime;
+
+    // Dynamic pitch glide based on throttle & airspeed
+    const targetRumbleFreq = 48 + throttle * 64 + (speed / 50.0) * 25;
+    const targetWhineFreq = 180 + throttle * 320 + (speed / 50.0) * 140;
+    const targetFilterCutoff = 320 + throttle * 1200 + (speed / 50.0) * 600;
+
+    this.planeEngineRumble.frequency.setTargetAtTime(targetRumbleFreq, now, 0.15);
+    this.planeEngineWhine.frequency.setTargetAtTime(targetWhineFreq, now, 0.15);
+    this.planeFilter.frequency.setTargetAtTime(targetFilterCutoff, now, 0.15);
+
+    const targetGain = 0.22 + throttle * 0.28;
+    this.planeEngineGain.gain.setTargetAtTime(targetGain, now, 0.2);
+  }
+
+  stopPlaneEngine() {
+    if (!this.ctx || !this.planeEngineGain) return;
+    const now = this.ctx.currentTime;
+    try {
+      this.planeEngineGain.gain.setTargetAtTime(0.0001, now, 0.8);
+      if (this.planeEngineRumble) this.planeEngineRumble.stop(now + 1.2);
+      if (this.planeEngineWhine) this.planeEngineWhine.stop(now + 1.2);
+    } catch (e) {}
+    this.planeEngineGain = null;
+    this.planeEngineRumble = null;
+    this.planeEngineWhine = null;
+    this.planeFilter = null;
+  }
+
+  playTouchdownScreech() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+
+    // Filtered white noise burst simulating tire skid on runway asphalt
+    const bufferSize = this.ctx.sampleRate * 0.45;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.15));
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1400, now);
+    filter.Q.setValueAtTime(4.0, now);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.32, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+
+    noise.start(now);
+  }
+
+  playStallAlarm() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+
+    // Urgent dual-tone aviation cockpit stall warning chime
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.setValueAtTime(660, now + 0.08);
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(now);
+    osc.stop(now + 0.18);
+  }
+
+  playPlaneCannonSound() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+
+    // Heavy twin plasma blaster discharge
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(80, now + 0.12);
+
+    gain.gain.setValueAtTime(0.24, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(now);
+    osc.stop(now + 0.12);
+  }
 }
+

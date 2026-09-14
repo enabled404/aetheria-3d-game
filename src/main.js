@@ -43,6 +43,9 @@ import { CraftingUI } from './ui/CraftingUI.js';
 import { SettingsUI } from './ui/SettingsUI.js';
 import { TitleScreen } from './ui/TitleScreen.js';
 import { GameCursor } from './ui/GameCursor.js';
+import { Airport } from './world/Airport.js';
+import { Airplane } from './entities/Airplane.js';
+import { FlightHUD } from './ui/FlightHUD.js';
 
 // 1. Initialize Core Engine & Systems
 const canvas = document.getElementById('game-canvas');
@@ -69,6 +72,22 @@ const foliage = new FoliageSystem(renderer.scene, terrain, collisionSystem);
 const weatherSystem = new WeatherSystem(renderer.scene, terrain, particleEngine, audioEngine, cameraController);
 const riftEventSystem = new RiftEventSystem(renderer.scene, terrain, particleEngine, audioEngine);
 const worldHazards = new WorldHazards(renderer.scene, terrain, particleEngine, audioEngine, cameraController);
+
+// Aerodrome Infrastructure & Flight Systems
+const airport = new Airport(renderer.scene, terrain, collisionSystem);
+const flightHud = new FlightHUD();
+
+// Aeroplane Fleet:
+// Plane 1: Positioned on runway threshold (Runway 36 approach) ready for immediate takeoff
+const planeRunway = new Airplane(renderer.scene, terrain, new THREE.Vector3(-110, 4.22, 45), audioEngine, particleEngine);
+planeRunway.group.rotation.y = Math.PI; // Heading North down the runway
+
+// Plane 2: Parked on the apron in front of the hangar
+const planeApron = new Airplane(renderer.scene, terrain, new THREE.Vector3(-72, 4.22, -30), audioEngine, particleEngine);
+planeApron.group.rotation.y = -Math.PI / 2;
+
+const airplanes = [planeRunway, planeApron];
+let currentActivePlane = null;
 
 // 3. Initialize Player
 const player = new Player(renderer.scene, assetManager);
@@ -227,24 +246,69 @@ function animate() {
     audioEngine.playToastSound();
   }
 
+  // Contextual Aircraft Check
+  let nearestPlane = null;
+  let nearestPlaneDist = Infinity;
+  for (const plane of airplanes) {
+    const d = player.position.distanceTo(plane.group.position);
+    if (d < nearestPlaneDist) {
+      nearestPlaneDist = d;
+      nearestPlane = plane;
+    }
+  }
+
   // Contextual Interaction Check
   let promptText = null;
-  for (const npc of npcs) {
-    if (player.position.distanceTo(npc.position) < npc.interactionRadius) {
-      promptText = `[E] Speak with ${npc.name}`;
-      break;
+  if (!currentActivePlane && nearestPlane && nearestPlaneDist < 6.5) {
+    promptText = '[F] Board Aeroplane';
+  }
+
+  if (!promptText) {
+    for (const npc of npcs) {
+      if (player.position.distanceTo(npc.position) < npc.interactionRadius) {
+        promptText = `[E] Speak with ${npc.name}`;
+        break;
+      }
     }
   }
   if (!promptText && player.position.distanceTo(bossTitan.position) < 18.0 && !bossTitan.isAwake) {
     promptText = `[E] Awaken The Ancient Titan`;
   }
-  for (const c of deployables.campfires) {
-    if (player.position.distanceTo(c.pos) < 3.0) {
-      promptText = `[E] Cook Food at Campfire`;
-      break;
+  if (!promptText) {
+    for (const c of deployables.campfires) {
+      if (player.position.distanceTo(c.pos) < 3.0) {
+        promptText = `[E] Cook Food at Campfire`;
+        break;
+      }
     }
   }
   hud.showPrompt(promptText);
+
+  // Aircraft Boarding / Disembarking (Key F)
+  if (inputManager.wasKeyJustPressed('KeyF')) {
+    if (!currentActivePlane) {
+      if (nearestPlane && nearestPlaneDist < 6.5) {
+        currentActivePlane = nearestPlane;
+        currentActivePlane.mount(player);
+        hud.showToast('✈️ Boarded Aeroplane — Controls Active');
+        audioEngine.playToastSound();
+      }
+    } else {
+      if (currentActivePlane.isGrounded && currentActivePlane.speed < 5.0) {
+        currentActivePlane.dismount();
+        currentActivePlane = null;
+        hud.showToast('Disembarked from Aeroplane');
+      } else {
+        hud.showToast('⚠️ Land and bring aircraft to a stop to disembark!');
+      }
+    }
+  }
+
+  // Toggle Cockpit / Chase Camera while flying (Key V or C)
+  if (currentActivePlane && (inputManager.wasKeyJustPressed('KeyV') || inputManager.wasKeyJustPressed('KeyC'))) {
+    const mode = cameraController.toggleFlightCamera();
+    hud.showToast(mode === 'cockpit' ? 'Cockpit View' : 'Chase View');
+  }
 
   // Interaction Key (E)
   if (inputManager.wasKeyJustPressed('KeyE')) {
@@ -283,152 +347,167 @@ function animate() {
     }
   }
 
-  // Active Hotbar Item & Visible 3D Weapon in Hand
-  const activeSlot = player.hotbar[inputManager.selectedHotbarIndex];
-  hud.setHotbarActive(inputManager.selectedHotbarIndex);
-  player.setEquippedItem(activeSlot);
+  // Update Airport & Aeroplane Fleet
+  airport.update(dt);
+  for (const plane of airplanes) {
+    plane.update(dt, currentActivePlane === plane ? inputManager : null, combatManager);
+  }
 
-  // Harvest Tool (Slot 3)
-  harvestSystem.update(dt);
-  if (activeSlot === 'harvest_tool') {
-    if (cameraController.isAiming) {
-      cameraController.setAiming(false);
-      hud.setAiming(false);
-      combatManager.updateLaserSight(player.position, null, false);
+  if (currentActivePlane) {
+    // Flight Simulation Mode Active
+    flightHud.update(currentActivePlane);
+    cameraController.updateFlightCamera(dt, currentActivePlane, (x, z) => terrain.getHeightAt(x, z));
+  } else {
+    // Standard Ground / Foot Mode Active
+    flightHud.hide();
+
+    // Active Hotbar Item & Visible 3D Weapon in Hand
+    const activeSlot = player.hotbar[inputManager.selectedHotbarIndex];
+    hud.setHotbarActive(inputManager.selectedHotbarIndex);
+    player.setEquippedItem(activeSlot);
+
+    // Harvest Tool (Slot 3)
+    harvestSystem.update(dt);
+    if (activeSlot === 'harvest_tool') {
+      if (cameraController.isAiming) {
+        cameraController.setAiming(false);
+        hud.setAiming(false);
+        combatManager.updateLaserSight(player.position, null, false);
+      }
+      if (inputManager.wasMouseJustPressed(0)) {
+        harvestSystem.performHarvest(player, (res) => {
+          if (res.type === 'tree') audioEngine.playWoodChop();
+          else if (res.type === 'rock') audioEngine.playStoneClink();
+          else audioEngine.playSwordSound();
+          hud.showToast(res.label);
+        });
+      }
+    } else if (activeSlot === 'blaster') {
+      // PUBG-Style Tactical ADS Aiming (Hold RMB)
+      const isAimRequested = inputManager.isMouseDown(2);
+      if (isAimRequested && !cameraController.isAiming) {
+        cameraController.setAiming(true);
+        hud.setAiming(true);
+        audioEngine.playAimSound();
+      } else if (!isAimRequested && cameraController.isAiming) {
+        cameraController.setAiming(false);
+        hud.setAiming(false);
+      }
+
+      // Laser Sight Guide
+      const aimDir = cameraController.getAimDirection();
+      combatManager.updateLaserSight(player.position, aimDir, cameraController.isAiming);
+
+      // Blaster Fire & Charge
+      if (inputManager.isMouseDown(0)) {
+        if (!combatManager.isCharging) combatManager.startCharging();
+      } else if (combatManager.isCharging) {
+        const origin = player.position.clone().add(new THREE.Vector3(0, 1.4, 0));
+        combatManager.releaseCharge(origin, aimDir);
+        audioEngine.playBlasterSound(combatManager.chargeTime >= 1.2);
+      }
+    } else if (activeSlot === 'katana') {
+      if (cameraController.isAiming) {
+        cameraController.setAiming(false);
+        hud.setAiming(false);
+        combatManager.updateLaserSight(player.position, null, false);
+      }
+      if (inputManager.wasMouseJustPressed(0)) {
+        combatManager.performMeleeAttack(player, (dmg, isCrit) => {
+          audioEngine.playSwordSound(isCrit);
+          for (const e of enemies) {
+            if (!e.isDead && player.position.distanceTo(e.group.position) < 3.2) {
+              const died = e.takeDamage(dmg);
+              combatManager.damageNumbers.spawn(dmg, e.group.position, isCrit);
+              particleEngine.spawnSparks(e.group.position, isCrit ? 22 : 12, 0x00ffff, 8.0);
+              if (died) {
+                lootSystem.spawnDrop(e.group.position, e.type);
+                questEngine.onEnemyDefeated(e.type, player, audioEngine, hud);
+              }
+            }
+          }
+          if (bossTitan.isAwake && !bossTitan.isDead && player.position.distanceTo(bossTitan.group.position) < 6.5) {
+            bossTitan.takeDamage(dmg);
+            combatManager.damageNumbers.spawn(dmg, bossTitan.group.position, isCrit);
+            particleEngine.spawnSparks(bossTitan.group.position, 25, 0xff00e5, 10.0);
+            if (bossTitan.isDead) {
+              lootSystem.spawnDrop(bossTitan.position, 'titan');
+              questEngine.onBossDefeated(player, audioEngine, hud);
+            }
+          }
+        });
+      }
+
+      // Parry Shield (Hold RMB)
+      if (inputManager.isMouseDown(2)) {
+        player.animator.setState('parry');
+        combatManager.isParrying = true;
+      } else {
+        combatManager.isParrying = false;
+      }
+    } else {
+      if (cameraController.isAiming) {
+        cameraController.setAiming(false);
+        hud.setAiming(false);
+        combatManager.updateLaserSight(player.position, null, false);
+      }
+      if (activeSlot === 'building_kit') {
+        const fwd = cameraController.getForwardVector();
+        const buildPos = buildGrid.updatePreview(player.position, fwd);
+        if (inputManager.wasMouseJustPressed(0)) {
+          buildGrid.placeBlock(buildPos, 'wood');
+          player.inventory.wood = Math.max(0, (player.inventory.wood || 0) - 2);
+          particleEngine.spawnSparks(buildPos, 10, 0xd4a373, 4.0);
+        }
+      } else {
+        buildGrid.hidePreview();
+      }
     }
+
+    // Quick Consume
     if (inputManager.wasMouseJustPressed(0)) {
-      harvestSystem.performHarvest(player, (res) => {
-        if (res.type === 'tree') audioEngine.playWoodChop();
-        else if (res.type === 'rock') audioEngine.playStoneClink();
-        else audioEngine.playSwordSound();
-        hud.showToast(res.label);
-      });
-    }
-  } else if (activeSlot === 'blaster') {
-    // PUBG-Style Tactical ADS Aiming (Hold RMB)
-    const isAimRequested = inputManager.isMouseDown(2);
-    if (isAimRequested && !cameraController.isAiming) {
-      cameraController.setAiming(true);
-      hud.setAiming(true);
-      audioEngine.playAimSound();
-    } else if (!isAimRequested && cameraController.isAiming) {
-      cameraController.setAiming(false);
-      hud.setAiming(false);
+      if (activeSlot === 'cooked_meat' && player.inventory.cooked_meat > 0) {
+        player.inventory.cooked_meat--;
+        player.eatFood(50, 45);
+        particleEngine.spawnSparks(player.position, 12, 0x20e386, 4.0);
+        hud.showToast('🍖 Savored Steak (+50 HUN, +45 HP)');
+      } else if (activeSlot === 'health_potion' && player.inventory.health_potion > 0) {
+        player.inventory.health_potion--;
+        player.heal(75);
+        particleEngine.spawnSparks(player.position, 20, 0xa842ff, 6.0);
+        hud.showToast('🧪 Vitality Elixir (+75 HP)');
+      }
     }
 
-    // Laser Sight Guide
-    const aimDir = cameraController.getAimDirection();
-    combatManager.updateLaserSight(player.position, aimDir, cameraController.isAiming);
-
-    // Blaster Fire & Charge
-    if (inputManager.isMouseDown(0)) {
-      if (!combatManager.isCharging) combatManager.startCharging();
-    } else if (combatManager.isCharging) {
-      const origin = player.position.clone().add(new THREE.Vector3(0, 1.4, 0));
-      combatManager.releaseCharge(origin, aimDir);
-      audioEngine.playBlasterSound(combatManager.chargeTime >= 1.2);
-    }
-  } else if (activeSlot === 'katana') {
-    if (cameraController.isAiming) {
-      cameraController.setAiming(false);
-      hud.setAiming(false);
-      combatManager.updateLaserSight(player.position, null, false);
-    }
-    if (inputManager.wasMouseJustPressed(0)) {
-      combatManager.performMeleeAttack(player, (dmg, isCrit) => {
-        audioEngine.playSwordSound(isCrit);
+    // Update Game Entities & Ground Slam with Spatial Collisions & Foley
+    player.update(
+      dt,
+      inputManager,
+      cameraController,
+      terrain,
+      particleEngine,
+      (slamPos) => {
+        combatManager.spawnBossShockwave(slamPos);
+        audioEngine.playGroundSlamSound();
+        cameraController.addShake(0.4);
+        hud.showToast('💥 Aerial Ground Slam!');
         for (const e of enemies) {
-          if (!e.isDead && player.position.distanceTo(e.group.position) < 3.2) {
-            const died = e.takeDamage(dmg);
-            combatManager.damageNumbers.spawn(dmg, e.group.position, isCrit);
-            particleEngine.spawnSparks(e.group.position, isCrit ? 22 : 12, 0x00ffff, 8.0);
+          if (!e.isDead && slamPos.distanceTo(e.group.position) < 9.0) {
+            const died = e.takeDamage(55);
+            combatManager.damageNumbers.spawn(55, e.group.position, true);
             if (died) {
               lootSystem.spawnDrop(e.group.position, e.type);
               questEngine.onEnemyDefeated(e.type, player, audioEngine, hud);
             }
           }
         }
-        if (bossTitan.isAwake && !bossTitan.isDead && player.position.distanceTo(bossTitan.group.position) < 6.5) {
-          bossTitan.takeDamage(dmg);
-          combatManager.damageNumbers.spawn(dmg, bossTitan.group.position, isCrit);
-          particleEngine.spawnSparks(bossTitan.group.position, 25, 0xff00e5, 10.0);
-          if (bossTitan.isDead) {
-            lootSystem.spawnDrop(bossTitan.position, 'titan');
-            questEngine.onBossDefeated(player, audioEngine, hud);
-          }
-        }
-      });
-    }
+      },
+      collisionSystem,
+      audioEngine
+    );
 
-    // Parry Shield (Hold RMB)
-    if (inputManager.isMouseDown(2)) {
-      player.animator.setState('parry');
-      combatManager.isParrying = true;
-    } else {
-      combatManager.isParrying = false;
-    }
-  } else {
-    if (cameraController.isAiming) {
-      cameraController.setAiming(false);
-      hud.setAiming(false);
-      combatManager.updateLaserSight(player.position, null, false);
-    }
-    if (activeSlot === 'building_kit') {
-      const fwd = cameraController.getForwardVector();
-      const buildPos = buildGrid.updatePreview(player.position, fwd);
-      if (inputManager.wasMouseJustPressed(0)) {
-        buildGrid.placeBlock(buildPos, 'wood');
-        player.inventory.wood = Math.max(0, (player.inventory.wood || 0) - 2);
-        particleEngine.spawnSparks(buildPos, 10, 0xd4a373, 4.0);
-      }
-    } else {
-      buildGrid.hidePreview();
-    }
+    cameraController.update(dt, player.position, (x, z) => terrain.getHeightAt(x, z));
   }
-
-  // Quick Consume
-  if (inputManager.wasMouseJustPressed(0)) {
-    if (activeSlot === 'cooked_meat' && player.inventory.cooked_meat > 0) {
-      player.inventory.cooked_meat--;
-      player.eatFood(50, 45);
-      particleEngine.spawnSparks(player.position, 12, 0x20e386, 4.0);
-      hud.showToast('🍖 Savored Steak (+50 HUN, +45 HP)');
-    } else if (activeSlot === 'health_potion' && player.inventory.health_potion > 0) {
-      player.inventory.health_potion--;
-      player.heal(75);
-      particleEngine.spawnSparks(player.position, 20, 0xa842ff, 6.0);
-      hud.showToast('🧪 Vitality Elixir (+75 HP)');
-    }
-  }
-
-  // Update Game Entities & Ground Slam with Spatial Collisions & Foley
-  player.update(
-    dt,
-    inputManager,
-    cameraController,
-    terrain,
-    particleEngine,
-    (slamPos) => {
-      combatManager.spawnBossShockwave(slamPos);
-      audioEngine.playGroundSlamSound();
-      cameraController.addShake(0.4);
-      hud.showToast('💥 Aerial Ground Slam!');
-      for (const e of enemies) {
-        if (!e.isDead && slamPos.distanceTo(e.group.position) < 9.0) {
-          const died = e.takeDamage(55);
-          combatManager.damageNumbers.spawn(55, e.group.position, true);
-          if (died) {
-            lootSystem.spawnDrop(e.group.position, e.type);
-            questEngine.onEnemyDefeated(e.type, player, audioEngine, hud);
-          }
-        }
-      }
-    },
-    collisionSystem,
-    audioEngine
-  );
-
-  cameraController.update(dt, player.position, (x, z) => terrain.getHeightAt(x, z));
 
   ocean.update(dt);
   sky.update(dt, player.position);
@@ -651,7 +730,7 @@ function animate() {
 
   // Update UI & Compass & Mini-Radar
   const isSprinting = inputManager.isKeyDown('ShiftLeft') && player.stamina > 5;
-  hud.update(player, bossTitan, combatManager, enemies, npcs, cameraController.yaw, isSprinting, dt, riftEventSystem.getRiftPosition());
+  hud.update(player, bossTitan, combatManager, enemies, npcs, cameraController.yaw, isSprinting, dt, riftEventSystem.getRiftPosition(), airplanes);
   compass.update(cameraController.yaw);
 
   // Clear per-frame input edge triggers

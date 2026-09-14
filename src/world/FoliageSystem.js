@@ -50,6 +50,7 @@ export class FoliageSystem {
       const dist = Math.hypot(x, z);
 
       if (dist < 48) continue; // Keep summit mountain clear
+      if (this.terrain.isInsideAirfield && this.terrain.isInsideAirfield(x, z, 3.0)) continue; // Keep airfield clear
 
       const y = this.terrain.getHeightAt(x, z);
       if (y > 2.2 && y < 28.0) {
@@ -132,6 +133,7 @@ export class FoliageSystem {
     for (let i = 0; i < CONFIG.WORLD.ROCK_COUNT * 2 && rockIdx < CONFIG.WORLD.ROCK_COUNT; i++) {
       const x = (Math.random() - 0.5) * size * 0.85;
       const z = (Math.random() - 0.5) * size * 0.85;
+      if (this.terrain.isInsideAirfield && this.terrain.isInsideAirfield(x, z, 3.0)) continue;
       const y = this.terrain.getHeightAt(x, z);
       if (y > 1.2) {
         const s = 0.75 + Math.random() * 0.9;
@@ -176,6 +178,7 @@ export class FoliageSystem {
     for (let i = 0; i < CONFIG.WORLD.CRYSTAL_COUNT * 2 && crystalIdx < CONFIG.WORLD.CRYSTAL_COUNT; i++) {
       const x = (Math.random() - 0.5) * size * 0.75;
       const z = (Math.random() - 0.5) * size * 0.75;
+      if (this.terrain.isInsideAirfield && this.terrain.isInsideAirfield(x, z, 3.0)) continue;
       const y = this.terrain.getHeightAt(x, z);
       if (y > 3.0) {
         const s = 0.8 + Math.random() * 0.6;

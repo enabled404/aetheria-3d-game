@@ -71,8 +71,41 @@ export class Terrain {
     // Coastal ridges
     const ridge = Math.abs(this.fbm(nx * 2, nz * 2, 3) - 0.5) * 14.0;
 
-    const totalHeight = (baseH + ridge + mountainHeight) * islandMask - 4.0;
+    let totalHeight = (baseH + ridge + mountainHeight) * islandMask - 4.0;
+
+    // Aerodrome / Airport Runway Plateau Flattening (West coast shelf at X: -110, Z: -30)
+    // Runway corridor: length 190m along Z, width 40m along X
+    const rx = Math.max(0, Math.abs(worldX - (-110)) - 22);
+    const rz = Math.max(0, Math.abs(worldZ - (-30)) - 95);
+    const runwayDist = Math.hypot(rx, rz);
+
+    // Apron / Hangar corridor extending slightly east
+    const ax = Math.max(0, Math.abs(worldX - (-78)) - 15);
+    const az = Math.max(0, Math.abs(worldZ - (-30)) - 28);
+    const apronDist = Math.hypot(ax, az);
+
+    const airfieldDist = Math.min(runwayDist, apronDist);
+    const airfieldBlend = 18.0;
+
+    if (airfieldDist < airfieldBlend) {
+      const t = Math.max(0, 1.0 - airfieldDist / airfieldBlend);
+      const smoothT = t * t * (3.0 - 2.0 * t); // Smooth Hermite curve
+      totalHeight = THREE.MathUtils.lerp(totalHeight, 4.2, smoothT);
+    }
+
     return totalHeight;
+  }
+
+  isInsideAirfield(worldX, worldZ, margin = 0) {
+    const rx = Math.max(0, Math.abs(worldX - (-110)) - (24 + margin));
+    const rz = Math.max(0, Math.abs(worldZ - (-30)) - (98 + margin));
+    const runwayDist = Math.hypot(rx, rz);
+
+    const ax = Math.max(0, Math.abs(worldX - (-78)) - (16 + margin));
+    const az = Math.max(0, Math.abs(worldZ - (-30)) - (30 + margin));
+    const apronDist = Math.hypot(ax, az);
+
+    return Math.min(runwayDist, apronDist) === 0;
   }
 
   generateHeightfield() {
