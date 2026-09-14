@@ -98,10 +98,32 @@ export class Player {
     return false;
   }
 
-  takeDamage(amount) {
+  respawn(terrain = null, hud = null) {
+    this.health = this.maxHealth;
+    this.stamina = this.maxStamina;
+    this.hunger = this.maxHunger;
+    this.velocity.set(0, 0, 0);
+    const spawnX = 0;
+    const spawnZ = 60;
+    const spawnY = terrain ? (terrain.getHeightAt(spawnX, spawnZ) + 0.2) : 15;
+    this.position.set(spawnX, spawnY, spawnZ);
+    this.isGrounded = true;
+    this.isGroundSlamming = false;
+    this.isThrusterActive = false;
+    if (hud) {
+      hud.vignetteOpacity = 0;
+      hud.showToast('✨ Respawned at Coast Haven Camp');
+    }
+  }
+
+  takeDamage(amount, terrain = null, hud = null) {
     this.health = Math.max(0, this.health - amount);
     this.animator.triggerAction('hit', 0.25);
-    return this.health <= 0;
+    if (this.health <= 0) {
+      this.respawn(terrain, hud);
+      return true;
+    }
+    return false;
   }
 
   heal(amount) {

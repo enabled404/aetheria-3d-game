@@ -169,6 +169,38 @@ export class CameraController {
     }
   }
 
+  snapToTarget(playerPosition, terrainHeightFunc = null) {
+    const headPos = playerPosition.clone().add(new THREE.Vector3(0, this.heightOffset, 0));
+    const right = this.getRightVector();
+    const shoulder = right.clone().multiplyScalar(this.shoulderOffset);
+    const orbitPitch = this.pitch * 0.72;
+    const camOffset = new THREE.Vector3(
+      Math.sin(this.yaw) * Math.cos(orbitPitch),
+      -Math.sin(orbitPitch) * 0.75 + 0.28,
+      Math.cos(this.yaw) * Math.cos(orbitPitch)
+    );
+
+    this.targetPos.copy(headPos)
+      .add(shoulder)
+      .add(camOffset.multiplyScalar(this.targetDistance));
+
+    if (terrainHeightFunc) {
+      const floorH = terrainHeightFunc(this.targetPos.x, this.targetPos.z) + 0.65;
+      if (this.targetPos.y < floorH) this.targetPos.y = floorH;
+    }
+
+    this.currentPos.copy(this.targetPos);
+    this.camera.position.copy(this.currentPos);
+    this.camera.up.set(0, 1, 0);
+
+    const aimDir = this.getAimDirection();
+    const focusTarget = headPos.clone()
+      .add(shoulder.clone().multiplyScalar(0.3))
+      .add(aimDir.clone().multiplyScalar(24.0));
+
+    this.camera.lookAt(focusTarget);
+  }
+
   // --- Flight Simulation Camera Modes ---
   toggleFlightCamera() {
     this.flightCameraMode = (this.flightCameraMode === 'chase') ? 'cockpit' : 'chase';

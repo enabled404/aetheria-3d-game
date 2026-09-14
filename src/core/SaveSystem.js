@@ -59,7 +59,14 @@ export class SaveSystem {
     try {
       const raw = localStorage.getItem(this.storageKey);
       if (!raw) return null;
-      return JSON.parse(raw);
+      const data = JSON.parse(raw);
+      if (data && data.player) {
+        data.player.maxHealth = data.player.maxHealth || 100;
+        data.player.health = Math.max(50, data.player.health || 100);
+        data.player.stamina = Math.max(50, data.player.stamina || 100);
+        data.player.hunger = Math.max(50, data.player.hunger || 100);
+      }
+      return data;
     } catch (err) {
       console.warn('Load failed:', err);
       return null;

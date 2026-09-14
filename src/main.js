@@ -41,7 +41,6 @@ import { TopoMap } from './ui/TopoMap.js';
 import { HolographicCompass } from './ui/HolographicCompass.js';
 import { CraftingUI } from './ui/CraftingUI.js';
 import { SettingsUI } from './ui/SettingsUI.js';
-import { TitleScreen } from './ui/TitleScreen.js';
 import { GameCursor } from './ui/GameCursor.js';
 import { Airport } from './world/Airport.js';
 import { Airplane } from './entities/Airplane.js';
@@ -92,6 +91,7 @@ let currentActivePlane = null;
 // 3. Initialize Player
 const player = new Player(renderer.scene, assetManager);
 player.position.set(0, terrain.getHeightAt(0, 60), 60);
+cameraController.snapToTarget(player.position, (x, z) => terrain.getHeightAt(x, z));
 
 // 4. Initialize NPCs
 const npcs = [
@@ -144,14 +144,21 @@ combatManager.setHitmarkerCallback((isCrit) => {
 const savedData = saveSystem.load();
 function restoreSavedGame() {
   if (savedData && savedData.player) {
-    player.position.set(savedData.player.x, savedData.player.y, savedData.player.z);
-    player.health = savedData.player.health;
+    const groundY = terrain.getHeightAt(savedData.player.x, savedData.player.z);
+    player.position.set(
+      savedData.player.x,
+      Math.max(savedData.player.y, groundY),
+      savedData.player.z
+    );
     player.maxHealth = savedData.player.maxHealth || 100;
-    player.stamina = savedData.player.stamina;
-    player.hunger = savedData.player.hunger;
+    player.health = Math.max(50, savedData.player.health || 100);
+    player.stamina = Math.max(50, savedData.player.stamina || 100);
+    player.hunger = Math.max(50, savedData.player.hunger || 100);
     player.level = savedData.player.level || 1;
     player.xp = savedData.player.xp || 0;
     if (savedData.player.inventory) player.inventory = savedData.player.inventory;
+
+    cameraController.snapToTarget(player.position, (x, z) => terrain.getHeightAt(x, z));
 
     if (savedData.blocks) {
       for (const b of savedData.blocks) {
@@ -162,29 +169,12 @@ function restoreSavedGame() {
   }
 }
 
-// 9. Title Screen & Cinematic Flyover
-const titleScreen = new TitleScreen({
-  hasSave: !!(savedData && savedData.player),
-  onStart: () => {
-    audioEngine.init();
-    gameCursor.closeUI('title');
-    inputManager.requestPointerLock();
-    hud.showToast('🚀 Expedition Commenced! Follow Quest Guidance.');
-  },
-  onContinue: () => {
-    audioEngine.init();
-    restoreSavedGame();
-    gameCursor.closeUI('title');
-    inputManager.requestPointerLock();
-  },
-  onOpenSettings: () => {
-    settingsUI.open();
-  }
-});
-gameCursor.openUI('title');
-
-window.addEventListener('click', () => {
+// 9. Direct Gameplay Input & Audio Init
+canvas.addEventListener('click', () => {
   audioEngine.init();
+  if (!gameCursor.isAnyUIOpen()) {
+    inputManager.requestPointerLock();
+  }
 });
 
 let clock = new THREE.Clock();
@@ -193,16 +183,7 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  // 1. Cinematic Title Screen Flyover Mode
-  if (titleScreen.isActive) {
-    titleScreen.updateFlyover(dt, cameraController.camera);
-    ocean.update(dt);
-    sky.update(dt, player.position);
-    renderer.render();
-    return;
-  }
-
-  // 2. Mouse deltas for camera (pitch and yaw)
+  // 1. Mouse deltas for camera (pitch and yaw)
   const md = inputManager.consumeMouseDelta();
   if (inputManager.isPointerLocked) {
     cameraController.applyMouseDelta(md.x, md.y);

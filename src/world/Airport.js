@@ -166,7 +166,7 @@ export class Airport {
     const blueEmissive = new THREE.MeshBasicMaterial({ color: 0x0088ff });
     const lensGeom = new THREE.SphereGeometry(0.12, 8, 8);
 
-    const addLightFixture = (x, z, mat, colorHex = null) => {
+    const addLightFixture = (x, z, mat) => {
       const fix = new THREE.Mesh(lightFixturesGeom, fixtureMat);
       fix.position.set(x, this.center.y + 0.18, z);
       this.group.add(fix);
@@ -174,13 +174,6 @@ export class Airport {
       const bulb = new THREE.Mesh(lensGeom, mat);
       bulb.position.set(x, this.center.y + 0.38, z);
       this.group.add(bulb);
-
-      if (colorHex) {
-        const pLight = new THREE.PointLight(colorHex, 0.9, 8.0, 1.8);
-        pLight.position.set(x, this.center.y + 0.45, z);
-        this.group.add(pLight);
-        this.animatedLights.push(pLight);
-      }
     };
 
     // 1. Green Threshold Lights at North approach
