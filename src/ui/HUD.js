@@ -110,7 +110,7 @@ export class HUD {
     this.vignetteOpacity = 0.85;
   }
 
-  update(player, bossTitan, combatManager, enemies = [], npcs = [], yaw = 0, isSprinting = false, dt = 0.016, riftPos = null) {
+  update(player, bossTitan, combatManager, enemies = [], npcs = [], yaw = 0, isSprinting = false, dt = 0.016, riftPos = null, airplanes = []) {
     // 1. Bars
     if (this.hpBar) {
       const hpPct = Math.max(0, (player.health / player.maxHealth) * 100);

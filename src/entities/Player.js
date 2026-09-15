@@ -19,6 +19,7 @@ export class Player {
 
     this.position = this.model.group.position;
     this.position.set(0, 15, 60);
+    this.model.group.rotation.y = Math.PI;
 
     this.velocity = new THREE.Vector3();
     this.targetVelocity = new THREE.Vector3();
@@ -146,7 +147,15 @@ export class Player {
     if (input.isKeyDown('KeyD')) moveDir.add(right);
     if (input.isKeyDown('KeyA')) moveDir.sub(right);
 
-    if (moveDir.lengthSq() > 0.001) {
+    if (cameraController.isAiming) {
+      const aimDir = cameraController.getAimDirection();
+      const targetAngle = Math.atan2(aimDir.x, aimDir.z);
+      this.model.group.rotation.y = THREE.MathUtils.lerp(
+        this.model.group.rotation.y,
+        targetAngle,
+        Math.min(1.0, dt * 20.0)
+      );
+    } else if (moveDir.lengthSq() > 0.001) {
       moveDir.normalize();
       // Rotate character model to face moving direction
       const targetAngle = Math.atan2(moveDir.x, moveDir.z);
