@@ -214,56 +214,76 @@ export class CameraController {
 
     const fwd = airplane.getForwardVector();
     const up = airplane.getUpVector();
-    const right = airplane.getRightVector();
     const planePos = airplane.group.position;
     const speed = airplane.speed || 0;
+    const gForce = airplane.gForce || 1.0;
+    const isAfterburner = !!airplane.isAfterburner;
 
     if (this.flightCameraMode === 'cockpit') {
-      // First-person cockpit perspective
+      // First-person cockpit perspective with G-force buffeting
       const eyePos = planePos.clone()
-        .add(up.clone().multiplyScalar(0.72))
-        .add(fwd.clone().multiplyScalar(1.35));
+        .add(up.clone().multiplyScalar(0.74))
+        .add(fwd.clone().multiplyScalar(1.42));
+
+      // Engine vibration & high-G head shake
+      if (speed > 5.0) {
+        const vib = 0.006 * (airplane.rpm || 0.5) + Math.max(0, Math.abs(gForce - 1.0) * 0.008);
+        eyePos.x += (Math.random() - 0.5) * vib;
+        eyePos.y += (Math.random() - 0.5) * vib;
+      }
 
       this.camera.position.copy(eyePos);
-      const lookTarget = eyePos.clone().add(fwd.clone().multiplyScalar(50.0));
+      const lookTarget = eyePos.clone().add(fwd.clone().multiplyScalar(60.0));
       this.camera.lookAt(lookTarget);
 
       // Match aircraft roll in cockpit view
       this.camera.up.copy(up);
 
-      // FOV dynamically widens with speed
-      const targetFov = 72 + Math.min(18, (speed / 50.0) * 16);
-      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, dt * 4.0);
+      // Dynamic FOV rush with afterburner boost
+      const targetFov = 74 + Math.min(22, (speed / 50.0) * 16) + (isAfterburner ? 6 : 0);
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, dt * 5.0);
       this.camera.updateProjectionMatrix();
 
     } else {
       // Third-person aerodynamic chase camera
-      const chaseDist = 11.5 + Math.min(6.5, (speed / 50.0) * 6.5);
-      const chaseHeight = 3.4;
+      const gLag = THREE.MathUtils.clamp((gForce - 1.0) * 0.45, -0.5, 2.0);
+      const chaseDist = 11.2 + Math.min(7.5, (speed / 50.0) * 6.5) + gLag;
+      const chaseHeight = 3.2 + Math.max(0, -fwd.y * 1.5); // dynamic height based on climb/dive
 
       const targetCamPos = planePos.clone()
         .add(fwd.clone().multiplyScalar(-chaseDist))
         .add(up.clone().multiplyScalar(chaseHeight));
 
-      // Terrain clearance
+      // Terrain clearance check
       if (terrainHeightFunc) {
         const groundH = terrainHeightFunc(targetCamPos.x, targetCamPos.z) + 1.2;
         if (targetCamPos.y < groundH) targetCamPos.y = groundH;
       }
 
-      // Smooth lag behind the plane
-      this.currentPos.lerp(targetCamPos, Math.min(1.0, dt * 9.0));
+      // Smooth aerodynamic spring lag behind plane
+      this.currentPos.lerp(targetCamPos, Math.min(1.0, dt * 9.5));
+
+      // High-speed air buffeting & dive turbulence
+      if (speed > 36.0) {
+        const buffeting = Math.min(0.04, ((speed - 36.0) / 24.0) * 0.035);
+        this.currentPos.x += (Math.random() - 0.5) * buffeting;
+        this.currentPos.y += (Math.random() - 0.5) * buffeting;
+      }
+
       this.camera.position.copy(this.currentPos);
 
-      const lookAhead = planePos.clone().add(fwd.clone().multiplyScalar(18.0));
+      // Dynamic look-ahead target tilts with flight path
+      const lookAhead = planePos.clone()
+        .add(fwd.clone().multiplyScalar(22.0))
+        .add(up.clone().multiplyScalar(1.2));
       this.camera.lookAt(lookAhead);
 
       // Aerodynamic camera roll banking
-      const targetUp = new THREE.Vector3(0, 1, 0).lerp(up, 0.45).normalize();
-      this.camera.up.lerp(targetUp, Math.min(1.0, dt * 7.0));
+      const targetUp = new THREE.Vector3(0, 1, 0).lerp(up, 0.48).normalize();
+      this.camera.up.lerp(targetUp, Math.min(1.0, dt * 7.5));
 
-      const targetFov = 70 + Math.min(18, (speed / 50.0) * 16);
-      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, dt * 4.0);
+      const targetFov = 72 + Math.min(20, (speed / 50.0) * 16) + (isAfterburner ? 6 : 0);
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, dt * 4.5);
       this.camera.updateProjectionMatrix();
     }
   }

@@ -78,11 +78,11 @@ const flightHud = new FlightHUD();
 
 // Aeroplane Fleet:
 // Plane 1: Positioned on runway threshold (Runway 36 approach) ready for immediate takeoff
-const planeRunway = new Airplane(renderer.scene, terrain, new THREE.Vector3(-110, 4.22, 45), audioEngine, particleEngine);
+const planeRunway = new Airplane(renderer.scene, terrain, new THREE.Vector3(-110, 4.22, 45), audioEngine, particleEngine, collisionSystem);
 planeRunway.group.rotation.y = Math.PI; // Heading North down the runway
 
 // Plane 2: Parked on the apron in front of the hangar
-const planeApron = new Airplane(renderer.scene, terrain, new THREE.Vector3(-72, 4.22, -30), audioEngine, particleEngine);
+const planeApron = new Airplane(renderer.scene, terrain, new THREE.Vector3(-72, 4.22, -30), audioEngine, particleEngine, collisionSystem);
 planeApron.group.rotation.y = -Math.PI / 2;
 
 const airplanes = [planeRunway, planeApron];
@@ -183,9 +183,9 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  // 1. Mouse deltas for camera (pitch and yaw)
-  const md = inputManager.consumeMouseDelta();
-  if (inputManager.isPointerLocked) {
+  // 1. Mouse deltas for character camera (when on foot)
+  if (inputManager.isPointerLocked && !currentActivePlane) {
+    const md = inputManager.consumeMouseDelta();
     cameraController.applyMouseDelta(md.x, md.y);
   }
 
@@ -270,13 +270,15 @@ function animate() {
     if (!currentActivePlane) {
       if (nearestPlane && nearestPlaneDist < 6.5) {
         currentActivePlane = nearestPlane;
+        inputManager.isFlightMode = true;
         currentActivePlane.mount(player);
-        hud.showToast('✈️ Boarded Aeroplane — Controls Active');
+        hud.showToast('✈️ Boarded Aeroplane — Mouse & Flight Stick Active');
         audioEngine.playToastSound();
       }
     } else {
       if (currentActivePlane.isGrounded && currentActivePlane.speed < 5.0) {
         currentActivePlane.dismount();
+        inputManager.isFlightMode = false;
         currentActivePlane = null;
         hud.showToast('Disembarked from Aeroplane');
       } else {

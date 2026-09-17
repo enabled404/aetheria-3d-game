@@ -189,11 +189,22 @@ export class Player {
     const groundH = terrain.getHeightAt(this.position.x, this.position.z);
     const normal = terrain.getNormalAt?.(this.position.x, this.position.z) || new THREE.Vector3(0, 1, 0);
 
-    // Steep cliff check (slope > 55 deg)
-    if (this.isGrounded && normal.y < 0.55) {
-      // Slide downhill along slope normal
-      this.velocity.x += normal.x * 14.0 * dt;
-      this.velocity.z += normal.z * 14.0 * dt;
+    // Steep slope & cliff check
+    if (this.isGrounded) {
+      if (normal.y < 0.62) {
+        // Steep cliff (> 52 deg) -> dynamic slide downhill
+        this.velocity.x += normal.x * 16.0 * dt;
+        this.velocity.z += normal.z * 16.0 * dt;
+        if (particleEngine && Math.random() < 0.25) {
+          particleEngine.spawnDustCloud(this.position, 0.4);
+        }
+      } else if (normal.y < 0.78) {
+        // Moderate slope (38 - 52 deg): footing holds, but uphill speed throttled
+        const uphillDot = moveDir.x * normal.x + moveDir.z * normal.z;
+        if (uphillDot < 0) {
+          targetSpeed *= 0.68;
+        }
+      }
     }
 
     // 4. Gravity, Jumps & Swimming
@@ -210,6 +221,15 @@ export class Player {
     } else {
       if (this.position.y <= groundH + 0.15) {
         // Landed on ground
+        if (!this.isGrounded) {
+          const fallSpeed = -this.velocity.y;
+          if (fallSpeed > 5.5) {
+            cameraController.addShake(Math.min(0.28, fallSpeed * 0.022));
+            if (audioEngine) audioEngine.playFootstep('rock');
+            if (particleEngine) particleEngine.spawnDustCloud(this.position, 0.7);
+          }
+        }
+
         if (this.isGroundSlamming) {
           this.isGroundSlamming = false;
           onGroundSlam?.(this.position.clone());
@@ -261,9 +281,13 @@ export class Player {
     this.position.y += this.velocity.y * dt;
     this.position.z += this.velocity.z * dt;
 
-    // 5. Continuous Spatial Collision Resolution (Trees, Rocks, Crystals, Structures)
+    // 5. Continuous Spatial Collision Resolution (Trees, Rocks, Crystals, Structures, Vehicles)
     if (collisionSystem) {
-      collisionSystem.resolveCircleCollision(this.position, 0.45, this.velocity);
+      const collided = collisionSystem.resolveCircleCollision(this.position, 0.45, this.velocity);
+      if (collided) {
+        this.targetVelocity.x = this.velocity.x;
+        this.targetVelocity.z = this.velocity.z;
+      }
     }
 
     // Clamp floor
@@ -288,9 +312,11 @@ export class Player {
           let surface = 'grass';
           if (this.position.y < CONFIG.WORLD.WATER_LEVEL + 0.4) {
             surface = 'water';
-          } else if (this.position.y < 2.2) {
+          } else if (terrain.isInsideAirfield && terrain.isInsideAirfield(this.position.x, this.position.z, 0)) {
+            surface = 'asphalt';
+          } else if (this.position.y < 2.4) {
             surface = 'sand';
-          } else if (normal.y < 0.75) {
+          } else if (normal.y < 0.78) {
             surface = 'rock';
           }
           audioEngine.playFootstep(surface);

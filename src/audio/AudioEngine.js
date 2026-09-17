@@ -404,30 +404,38 @@ export class AudioEngine {
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
+    const pitchVar = 0.92 + Math.random() * 0.16;
 
     if (surface === 'water') {
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(320, now);
-      osc.frequency.exponentialRampToValueAtTime(140, now + 0.12);
+      osc.frequency.setValueAtTime(320 * pitchVar, now);
+      osc.frequency.exponentialRampToValueAtTime(140 * pitchVar, now + 0.12);
       g.gain.setValueAtTime(0.12, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    } else if (surface === 'asphalt') {
+      // Crisp, hard runway asphalt / concrete pavement
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(540 * pitchVar, now);
+      osc.frequency.exponentialRampToValueAtTime(180 * pitchVar, now + 0.06);
+      g.gain.setValueAtTime(0.14, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
     } else if (surface === 'rock') {
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(460, now);
-      osc.frequency.exponentialRampToValueAtTime(160, now + 0.08);
+      osc.frequency.setValueAtTime(460 * pitchVar, now);
+      osc.frequency.exponentialRampToValueAtTime(160 * pitchVar, now + 0.08);
       g.gain.setValueAtTime(0.10, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
     } else if (surface === 'sand') {
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(220, now);
-      osc.frequency.exponentialRampToValueAtTime(90, now + 0.1);
+      osc.frequency.setValueAtTime(220 * pitchVar, now);
+      osc.frequency.exponentialRampToValueAtTime(90 * pitchVar, now + 0.1);
       g.gain.setValueAtTime(0.09, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
     } else {
       // Grass / soil
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(180, now);
-      osc.frequency.exponentialRampToValueAtTime(70, now + 0.09);
+      osc.frequency.setValueAtTime(180 * pitchVar, now);
+      osc.frequency.exponentialRampToValueAtTime(70 * pitchVar, now + 0.09);
       g.gain.setValueAtTime(0.08, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
     }
@@ -596,37 +604,76 @@ export class AudioEngine {
 
     this.planeEngineRumble.start();
     this.planeEngineWhine.start();
+
+    // 4. Aerodynamic High-Speed Wind Rush Synth
+    const bufSize = Math.floor(this.ctx.sampleRate * 1.5);
+    const windBuffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+    const windData = windBuffer.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      windData[i] = Math.random() * 2 - 1;
+    }
+    this.planeWindSource = this.ctx.createBufferSource();
+    this.planeWindSource.buffer = windBuffer;
+    this.planeWindSource.loop = true;
+
+    this.planeWindFilter = this.ctx.createBiquadFilter();
+    this.planeWindFilter.type = 'bandpass';
+    this.planeWindFilter.frequency.setValueAtTime(650, now);
+    this.planeWindFilter.Q.setValueAtTime(1.4, now);
+
+    this.planeWindGain = this.ctx.createGain();
+    this.planeWindGain.gain.setValueAtTime(0.0001, now);
+
+    this.planeWindSource.connect(this.planeWindFilter);
+    this.planeWindFilter.connect(this.planeWindGain);
+    this.planeWindGain.connect(this.sfxGain);
+    this.planeWindSource.start();
   }
 
-  updatePlaneEngine(throttle, speed) {
+  updatePlaneEngine(throttle, speed, isAfterburner = false) {
     if (!this.ctx || !this.planeEngineGain) return;
     const now = this.ctx.currentTime;
 
-    // Dynamic pitch glide based on throttle & airspeed
-    const targetRumbleFreq = 48 + throttle * 64 + (speed / 50.0) * 25;
-    const targetWhineFreq = 180 + throttle * 320 + (speed / 50.0) * 140;
-    const targetFilterCutoff = 320 + throttle * 1200 + (speed / 50.0) * 600;
+    // Dynamic pitch glide based on throttle, airspeed, and afterburner
+    const abBoost = isAfterburner ? 1.28 : 1.0;
+    const targetRumbleFreq = (48 + throttle * 68 + (speed / 50.0) * 28) * abBoost;
+    const targetWhineFreq = (180 + throttle * 350 + (speed / 50.0) * 160) * abBoost;
+    const targetFilterCutoff = (320 + throttle * 1350 + (speed / 50.0) * 650) * (isAfterburner ? 1.45 : 1.0);
 
-    this.planeEngineRumble.frequency.setTargetAtTime(targetRumbleFreq, now, 0.15);
-    this.planeEngineWhine.frequency.setTargetAtTime(targetWhineFreq, now, 0.15);
-    this.planeFilter.frequency.setTargetAtTime(targetFilterCutoff, now, 0.15);
+    this.planeEngineRumble.frequency.setTargetAtTime(targetRumbleFreq, now, 0.12);
+    this.planeEngineWhine.frequency.setTargetAtTime(targetWhineFreq, now, 0.12);
+    this.planeFilter.frequency.setTargetAtTime(targetFilterCutoff, now, 0.12);
 
-    const targetGain = 0.22 + throttle * 0.28;
-    this.planeEngineGain.gain.setTargetAtTime(targetGain, now, 0.2);
+    const targetGain = (0.22 + throttle * 0.28) * (isAfterburner ? 1.25 : 1.0);
+    this.planeEngineGain.gain.setTargetAtTime(targetGain, now, 0.18);
+
+    // Dynamic Wind Rush: scales with square of airspeed for visceral sensation in dives
+    if (this.planeWindGain && this.planeWindFilter) {
+      const speedNorm = Math.min(1.5, speed / 48.0);
+      const targetWindGain = Math.min(0.36, Math.pow(speedNorm, 2) * 0.32);
+      const targetWindFreq = 650 + speedNorm * 1100;
+      this.planeWindGain.gain.setTargetAtTime(targetWindGain, now, 0.15);
+      this.planeWindFilter.frequency.setTargetAtTime(targetWindFreq, now, 0.15);
+    }
   }
 
   stopPlaneEngine() {
     if (!this.ctx || !this.planeEngineGain) return;
     const now = this.ctx.currentTime;
     try {
-      this.planeEngineGain.gain.setTargetAtTime(0.0001, now, 0.8);
-      if (this.planeEngineRumble) this.planeEngineRumble.stop(now + 1.2);
-      if (this.planeEngineWhine) this.planeEngineWhine.stop(now + 1.2);
+      this.planeEngineGain.gain.setTargetAtTime(0.0001, now, 0.6);
+      if (this.planeWindGain) this.planeWindGain.gain.setTargetAtTime(0.0001, now, 0.6);
+      if (this.planeEngineRumble) this.planeEngineRumble.stop(now + 1.0);
+      if (this.planeEngineWhine) this.planeEngineWhine.stop(now + 1.0);
+      if (this.planeWindSource) this.planeWindSource.stop(now + 1.0);
     } catch (e) {}
     this.planeEngineGain = null;
     this.planeEngineRumble = null;
     this.planeEngineWhine = null;
     this.planeFilter = null;
+    this.planeWindSource = null;
+    this.planeWindFilter = null;
+    this.planeWindGain = null;
   }
 
   playTouchdownScreech() {

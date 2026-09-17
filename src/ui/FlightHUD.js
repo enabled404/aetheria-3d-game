@@ -58,6 +58,7 @@ export class FlightHUD {
         <div id="flight-speed-bar-wrap" style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 8px; overflow: hidden;">
           <div id="flight-speed-bar" style="width: 0%; height: 100%; background: #00ffff; transition: width 0.1s;"></div>
         </div>
+        <div id="flight-g-val" style="font-size: 11px; color: #00ffaa; margin-top: 6px; font-weight: 700;">+1.0 G</div>
       </div>
 
       <!-- Right Altimeter Tape -->
@@ -115,14 +116,20 @@ export class FlightHUD {
         position: absolute;
         left: 50px;
         bottom: 80px;
-        width: 140px;
+        width: 146px;
         padding: 12px 14px;
         background: rgba(8, 16, 28, 0.75);
         border: 1px solid rgba(0, 229, 255, 0.35);
         border-radius: 8px;
         backdrop-filter: blur(8px);
       ">
-        <div style="font-size: 11px; color: #7ad7ff; margin-bottom: 6px;">THROTTLE <span id="flight-thr-pct" style="color: #fff; font-weight: 700; float: right;">0%</span></div>
+        <div style="font-size: 11px; color: #7ad7ff; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+          <span>THROTTLE</span>
+          <div>
+            <span id="flight-ab-tag" style="background: rgba(255, 50, 0, 0.25); border: 1px solid #ff4400; color: #ff5522; font-weight: 800; font-size: 9px; padding: 1px 5px; border-radius: 4px; display: none; margin-right: 4px;">AB</span>
+            <span id="flight-thr-pct" style="color: #fff; font-weight: 700;">0%</span>
+          </div>
+        </div>
         <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-bottom: 8px;">
           <div id="flight-thr-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00ffff, #00ffaa); transition: width 0.08s;"></div>
         </div>
@@ -150,14 +157,14 @@ export class FlightHUD {
         backdrop-filter: blur(8px);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       ">
-        <span><strong style="color: #00ffff;">Shift/Ctrl:</strong> Throttle</span>
-        <span><strong style="color: #00ffff;">W/S:</strong> Pitch</span>
-        <span><strong style="color: #00ffff;">A/D:</strong> Roll</span>
+        <span><strong style="color: #00ffff;">Mouse / W/S:</strong> Pitch</span>
+        <span><strong style="color: #00ffff;">Mouse / A/D:</strong> Roll</span>
         <span><strong style="color: #00ffff;">Q/E:</strong> Rudder</span>
+        <span><strong style="color: #00ffff;">Shift/Ctrl/Wheel:</strong> Throttle</span>
         <span><strong style="color: #00ffff;">Space:</strong> Brakes</span>
         <span><strong style="color: #00ffff;">LMB:</strong> Cannons</span>
         <span><strong style="color: #00ffff;">V:</strong> Camera</span>
-        <span><strong style="color: #ff4466;">F:</strong> Disembark</span>
+        <span><strong style="color: #ff4466;">F:</strong> Exit</span>
       </div>
     `;
 
@@ -166,6 +173,10 @@ export class FlightHUD {
       @keyframes stallBlink {
         from { opacity: 0.4; transform: translate(-50%, -50%) scale(0.96); }
         to { opacity: 1.0; transform: translate(-50%, -50%) scale(1.04); }
+      }
+      @keyframes abGlow {
+        from { box-shadow: 0 0 4px #ff3300; }
+        to { box-shadow: 0 0 12px #ff6600; }
       }
     `;
     document.head.appendChild(style);
@@ -177,10 +188,12 @@ export class FlightHUD {
     this.hdgValElem = document.getElementById('flight-hdg-val');
     this.speedValElem = document.getElementById('flight-speed-val');
     this.speedBarElem = document.getElementById('flight-speed-bar');
+    this.gValElem = document.getElementById('flight-g-val');
     this.altValElem = document.getElementById('flight-alt-val');
     this.vsiValElem = document.getElementById('flight-vsi-val');
     this.thrPctElem = document.getElementById('flight-thr-pct');
     this.thrFillElem = document.getElementById('flight-thr-fill');
+    this.abTagElem = document.getElementById('flight-ab-tag');
     this.stallAlertElem = document.getElementById('flight-stall-alert');
     this.gearTagElem = document.getElementById('flight-gear-tag');
     this.brakeTagElem = document.getElementById('flight-brake-tag');
@@ -211,6 +224,14 @@ export class FlightHUD {
       this.speedBarElem.style.background = (airplane.speed < airplane.stallSpeed) ? '#ff2233' : '#00ffff';
     }
 
+    // G-Meter
+    if (this.gValElem) {
+      const g = airplane.gForce !== undefined ? airplane.gForce : 1.0;
+      const sign = g >= 0 ? '+' : '';
+      this.gValElem.textContent = `${sign}${g.toFixed(1)} G`;
+      this.gValElem.style.color = (g > 3.5 || g < -0.5) ? '#ff3344' : (g > 2.5 ? '#ffaa00' : '#00ffaa');
+    }
+
     // 2. Altitude (Meters above Sea Level)
     const altitude = Math.round(airplane.group.position.y);
     if (this.altValElem) this.altValElem.textContent = altitude;
@@ -235,10 +256,21 @@ export class FlightHUD {
 
     if (this.hdgValElem) this.hdgValElem.textContent = `${String(hdgDeg).padStart(3, '0')}° [${cardinal}]`;
 
-    // 4. Throttle
+    // 4. Throttle & Afterburner
     const thrPct = Math.round(airplane.throttle * 100);
     if (this.thrPctElem) this.thrPctElem.textContent = `${thrPct}%`;
-    if (this.thrFillElem) this.thrFillElem.style.width = `${thrPct}%`;
+    if (this.thrFillElem) {
+      this.thrFillElem.style.width = `${thrPct}%`;
+      this.thrFillElem.style.background = airplane.isAfterburner 
+        ? 'linear-gradient(90deg, #ff9900, #ff2200)' 
+        : 'linear-gradient(90deg, #00ffff, #00ffaa)';
+    }
+    if (this.abTagElem) {
+      this.abTagElem.style.display = airplane.isAfterburner ? 'inline-block' : 'none';
+      if (airplane.isAfterburner) {
+        this.abTagElem.style.animation = 'abGlow 0.4s infinite alternate';
+      }
+    }
 
     // 5. Gear & Brakes
     if (this.gearTagElem) {

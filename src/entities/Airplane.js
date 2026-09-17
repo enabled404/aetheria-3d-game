@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 
 export class Airplane {
-  constructor(scene, terrain, position = new THREE.Vector3(-75, 4.22, -30), audioEngine = null, particleEngine = null) {
+  constructor(scene, terrain, position = new THREE.Vector3(-75, 4.22, -30), audioEngine = null, particleEngine = null, collisionSystem = null) {
     this.scene = scene;
     this.terrain = terrain;
     this.audioEngine = audioEngine;
     this.particleEngine = particleEngine;
+    this.collisionSystem = collisionSystem;
 
     this.group = new THREE.Group();
     this.group.position.copy(position);
@@ -16,10 +17,14 @@ export class Airplane {
     this.throttle = 0; // 0.0 to 1.0
     this.targetThrottle = 0;
     this.rpm = 0.2; // 0.2 idle to 1.0 max
+    this.isAfterburner = false;
 
     this.pitchRate = 0;
     this.rollRate = 0;
     this.yawRate = 0;
+    this.groundPitch = 0; // Takeoff rotation pitch angle
+    this.gForce = 1.0;
+    this.aoa = 0.0; // Angle of attack
 
     this.isGrounded = true;
     this.isPilotInside = false;
@@ -31,10 +36,11 @@ export class Airplane {
 
     // Aircraft physical specs
     this.gearHeight = 1.35; // height of fuselage center above ground on wheels
-    this.minTakeoffSpeed = 14.5; // m/s (~52 km/h)
-    this.maxSpeed = 58.0; // m/s (~210 km/h)
-    this.stallSpeed = 12.0; // m/s
+    this.minTakeoffSpeed = 10.5; // m/s (~38 km/h with elevator rotation)
+    this.maxSpeed = 62.0; // m/s (~223 km/h)
+    this.stallSpeed = 11.5; // m/s
     this.thrustForce = 38.0;
+    this.afterburnerThrust = 54.0;
 
     // Control surfaces & moving parts references
     this.propellers = [];
@@ -42,6 +48,7 @@ export class Airplane {
     this.rightAileron = null;
     this.elevator = null;
     this.rudder = null;
+    this.noseGearGroup = null;
     this.noseGearWheel = null;
     this.mainGearWheels = [];
     this.strobeLights = [];
@@ -49,11 +56,43 @@ export class Airplane {
     this.trailTimer = 0;
     this.weaponCooldown = 0;
 
+    // Spatial Colliders for Solid Obstacle Presence on Foot
+    this.colliders = [];
+
     this.buildModel();
+    this.initColliders();
     this.scene.add(this.group);
 
     // Initial orientation facing down runway (North, towards Z = -100)
     this.group.rotation.y = Math.PI;
+  }
+
+  initColliders() {
+    if (!this.collisionSystem) return;
+    const pos = this.group.position;
+    this.fuselageCol = this.collisionSystem.addCollider(pos.x, pos.z, 1.4, 3.5, 'vehicle', this);
+    this.leftWingCol = this.collisionSystem.addCollider(pos.x - 4.2, pos.z, 1.1, 2.2, 'vehicle', this);
+    this.rightWingCol = this.collisionSystem.addCollider(pos.x + 4.2, pos.z, 1.1, 2.2, 'vehicle', this);
+    this.noseCol = this.collisionSystem.addCollider(pos.x, pos.z + 3.2, 0.9, 2.2, 'vehicle', this);
+    this.colliders = [this.fuselageCol, this.leftWingCol, this.rightWingCol, this.noseCol];
+  }
+
+  updateColliders() {
+    if (!this.collisionSystem || this.colliders.length === 0) return;
+    const pos = this.group.position;
+    const right = this.getRightVector();
+    const fwd = this.getForwardVector();
+
+    this.collisionSystem.updateCollider(this.fuselageCol, pos.x, pos.z);
+    this.collisionSystem.updateCollider(this.leftWingCol, pos.x - right.x * 4.2, pos.z - right.z * 4.2);
+    this.collisionSystem.updateCollider(this.rightWingCol, pos.x + right.x * 4.2, pos.z + right.z * 4.2);
+    this.collisionSystem.updateCollider(this.noseCol, pos.x + fwd.x * 3.2, pos.z + fwd.z * 3.2);
+  }
+
+  setCollidersActive(active) {
+    for (const c of this.colliders) {
+      if (c) c.active = !!active;
+    }
   }
 
   buildModel() {
@@ -323,6 +362,7 @@ export class Airplane {
     this.pilot = player;
     player.model.group.visible = false;
     this.targetThrottle = 0.25; // idle throttle upon starting engines
+    this.setCollidersActive(false);
     if (this.audioEngine) {
       this.audioEngine.startPlaneEngine(this.throttle);
     }
@@ -331,12 +371,15 @@ export class Airplane {
   dismount() {
     if (!this.pilot) return;
     this.isPilotInside = false;
-    const exitPos = this.group.position.clone().add(this.getRightVector().multiplyScalar(3.2));
+    const exitPos = this.group.position.clone().add(this.getRightVector().multiplyScalar(3.5));
     exitPos.y = this.terrain.getHeightAt(exitPos.x, exitPos.z) + 0.2;
     this.pilot.position.copy(exitPos);
     this.pilot.velocity.set(0, 0, 0);
     this.pilot.model.group.visible = true;
     this.pilot = null;
+    this.isAfterburner = false;
+    this.setCollidersActive(true);
+    this.updateColliders();
 
     if (this.audioEngine) {
       this.audioEngine.stopPlaneEngine();
@@ -363,7 +406,7 @@ export class Airplane {
 
   fireCannons(combatManager) {
     if (this.weaponCooldown > 0) return;
-    this.weaponCooldown = 0.14; // rapid fire dogfight plasma
+    this.weaponCooldown = 0.12; // rapid fire dogfight plasma
 
     const fwd = this.getForwardVector();
     const right = this.getRightVector();
@@ -379,7 +422,7 @@ export class Airplane {
       .add(right.clone().multiplyScalar(3.8))
       .add(up.clone().multiplyScalar(0.1));
 
-    const boltSpeed = 120.0;
+    const boltSpeed = 140.0;
     const boltVel = fwd.clone().multiplyScalar(boltSpeed).add(this.velocity);
 
     if (combatManager) {
@@ -395,11 +438,23 @@ export class Airplane {
   update(dt, inputManager, combatManager = null) {
     // 1. Handle Throttle & Pilot Controls
     if (this.isPilotInside && inputManager) {
-      if (inputManager.isKeyDown('ShiftLeft')) {
-        this.targetThrottle = Math.min(1.0, this.targetThrottle + dt * 0.45);
+      // Mouse wheel throttle adjustment
+      const wheelDelta = inputManager.consumeMouseWheelDelta();
+      if (wheelDelta !== 0) {
+        this.targetThrottle = THREE.MathUtils.clamp(this.targetThrottle - (wheelDelta > 0 ? 0.08 : -0.08), 0.0, 1.0);
       }
+
+      // Shift accelerates throttle; at max throttle, activates afterburner
+      if (inputManager.isKeyDown('ShiftLeft')) {
+        this.targetThrottle = Math.min(1.0, this.targetThrottle + dt * 0.55);
+        this.isAfterburner = (this.throttle > 0.94);
+      } else {
+        this.isAfterburner = false;
+      }
+
+      // Ctrl decelerates throttle
       if (inputManager.isKeyDown('ControlLeft')) {
-        this.targetThrottle = Math.max(0.0, this.targetThrottle - dt * 0.55);
+        this.targetThrottle = Math.max(0.0, this.targetThrottle - dt * 0.65);
       }
       this.brakes = inputManager.isKeyDown('Space');
 
@@ -411,6 +466,8 @@ export class Airplane {
       // Unoccupied engine decelerates
       this.targetThrottle = 0;
       this.brakes = true;
+      this.isAfterburner = false;
+      this.updateColliders();
     }
 
     if (this.weaponCooldown > 0) {
@@ -418,11 +475,11 @@ export class Airplane {
     }
 
     // Engine spooling inertia
-    this.throttle = THREE.MathUtils.lerp(this.throttle, this.targetThrottle, Math.min(1.0, dt * 2.2));
-    this.rpm = THREE.MathUtils.lerp(this.rpm, 0.2 + this.throttle * 0.8, Math.min(1.0, dt * 3.0));
+    this.throttle = THREE.MathUtils.lerp(this.throttle, this.targetThrottle, Math.min(1.0, dt * 2.8));
+    this.rpm = THREE.MathUtils.lerp(this.rpm, 0.2 + this.throttle * 0.8 + (this.isAfterburner ? 0.2 : 0.0), Math.min(1.0, dt * 3.5));
 
     // Spin Propellers
-    const propSpeed = this.rpm * 48.0;
+    const propSpeed = this.rpm * 52.0;
     for (const prop of this.propellers) {
       prop.rotation.z += propSpeed * dt;
     }
@@ -438,23 +495,33 @@ export class Airplane {
     const up = this.getUpVector();
     const right = this.getRightVector();
 
-    // 2. Flight Aerodynamics & Attitude Control
+    // 2. Flight Aerodynamics & Hybrid Control
     let pitchInput = 0;
     let rollInput = 0;
     let yawInput = 0;
 
     if (this.isPilotInside && inputManager) {
-      // Pitch: S pulls back (Nose UP), W pushes forward (Nose DOWN)
+      // Keyboard Pitch: S pulls back (Nose UP), W pushes forward (Nose DOWN)
       if (inputManager.isKeyDown('KeyS') || inputManager.isKeyDown('ArrowDown')) pitchInput -= 1.0;
       if (inputManager.isKeyDown('KeyW') || inputManager.isKeyDown('ArrowUp')) pitchInput += 1.0;
 
-      // Roll: A banks Left, D banks Right
+      // Keyboard Roll: A banks Left, D banks Right
       if (inputManager.isKeyDown('KeyA') || inputManager.isKeyDown('ArrowLeft')) rollInput -= 1.0;
       if (inputManager.isKeyDown('KeyD') || inputManager.isKeyDown('ArrowRight')) rollInput += 1.0;
 
-      // Yaw: Q rudders Left, E rudders Right
+      // Keyboard Yaw: Q rudders Left, E rudders Right
       if (inputManager.isKeyDown('KeyQ')) yawInput -= 1.0;
       if (inputManager.isKeyDown('KeyE')) yawInput += 1.0;
+
+      // Mouse Flight input blending (intuitive flight stick feel)
+      const md = inputManager.consumeMouseDelta();
+      pitchInput += md.y * 0.022;
+      rollInput += md.x * 0.026;
+      yawInput += md.x * 0.012;
+
+      pitchInput = THREE.MathUtils.clamp(pitchInput, -1.0, 1.0);
+      rollInput = THREE.MathUtils.clamp(rollInput, -1.0, 1.0);
+      yawInput = THREE.MathUtils.clamp(yawInput, -1.0, 1.0);
     }
 
     // Animate control surfaces
@@ -467,71 +534,116 @@ export class Airplane {
     // Airspeed calculation
     this.speed = Math.max(0, this.velocity.dot(forward));
 
-    // Aerodynamic control authority scales with dynamic pressure
-    const dynamicPressure = Math.min(1.2, this.speed / 24.0);
+    // Dynamic pressure scales aerodynamic authority
+    const dynamicPressure = Math.min(1.35, this.speed / 20.0);
 
     if (!this.isGrounded) {
-      // In-flight angular rotation
-      const targetPitchRate = pitchInput * 1.45 * dynamicPressure;
-      const targetRollRate = rollInput * 2.4 * dynamicPressure;
-      const targetYawRate = yawInput * 0.65 * dynamicPressure;
+      // In-flight angular rates with aerodynamic damping
+      const targetPitchRate = pitchInput * 1.65 * dynamicPressure;
+      const targetRollRate = rollInput * 2.85 * dynamicPressure;
+      const targetYawRate = yawInput * 0.85 * dynamicPressure;
 
-      this.pitchRate = THREE.MathUtils.lerp(this.pitchRate, targetPitchRate, dt * 5.0);
-      this.rollRate = THREE.MathUtils.lerp(this.rollRate, targetRollRate, dt * 6.0);
-      this.yawRate = THREE.MathUtils.lerp(this.yawRate, targetYawRate, dt * 4.0);
+      this.pitchRate = THREE.MathUtils.lerp(this.pitchRate, targetPitchRate, Math.min(1.0, dt * 6.0));
+      this.rollRate = THREE.MathUtils.lerp(this.rollRate, targetRollRate, Math.min(1.0, dt * 7.5));
+      this.yawRate = THREE.MathUtils.lerp(this.yawRate, targetYawRate, Math.min(1.0, dt * 5.0));
 
       // Apply rotations in local aerodynamic axes
       this.group.rotateOnAxis(new THREE.Vector3(1, 0, 0), this.pitchRate * dt);
       this.group.rotateOnAxis(new THREE.Vector3(0, 0, 1), -this.rollRate * dt);
       this.group.rotateOnAxis(new THREE.Vector3(0, 1, 0), -this.yawRate * dt);
 
-      // Natural aerodynamic roll self-leveling at low bank angles
-      if (Math.abs(rollInput) < 0.1) {
-        const bankAngle = Math.asin(Math.max(-1, Math.min(1, right.y)));
-        this.group.rotateOnAxis(new THREE.Vector3(0, 0, 1), bankAngle * dt * 0.75);
+      // Coordinated Bank-to-Turn: Carve realistic turns when banked
+      const bankSin = right.y; // < 0 when banked right, > 0 when banked left
+      const turnRate = -bankSin * Math.min(1.6, (this.speed / 24.0) * 1.5);
+      this.group.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), turnRate * dt);
+
+      // Natural aerodynamic roll self-leveling trim when input is neutral
+      if (Math.abs(rollInput) < 0.08) {
+        const bankAngle = Math.asin(THREE.MathUtils.clamp(right.y, -1, 1));
+        this.group.rotateOnAxis(new THREE.Vector3(0, 0, 1), bankAngle * dt * 1.15);
       }
     } else {
       // On ground taxi steering (nosewheel turns aircraft)
-      const taxiTurnSpeed = (yawInput || rollInput) * (this.speed / 8.0) * 1.6;
-      this.group.rotation.y -= taxiTurnSpeed * dt;
+      const taxiTurnSpeed = (yawInput * 1.25 + rollInput * 0.55) * Math.min(1.6, this.speed / 6.0) * 1.8;
+      this.group.rotateOnAxis(new THREE.Vector3(0, 1, 0), -taxiTurnSpeed * dt);
 
-      // Keep wings level with ground on wheels
+      // Takeoff pitch rotation (Vr): Pulling back rotates nose up on rear wheels
+      if (this.speed > 8.0 && pitchInput < -0.05) {
+        const rotSpeed = -pitchInput * 0.75;
+        this.groundPitch = Math.min(0.22, this.groundPitch + rotSpeed * dt);
+      } else {
+        this.groundPitch = Math.max(0.0, this.groundPitch - dt * 2.2);
+      }
+
+      if (this.groundPitch > 0) {
+        this.group.rotateOnAxis(new THREE.Vector3(1, 0, 0), -this.groundPitch * dt * 6.0);
+      }
+
       this.pitchRate = 0;
       this.rollRate = 0;
     }
 
-    // 3. Aerodynamic Forces (Thrust, Lift, Drag, Gravity)
-    // Thrust accelerates along forward vector
-    const thrust = forward.clone().multiplyScalar(this.throttle * this.thrustForce);
+    // 3. Aerodynamic Forces (Thrust, AoA Lift, Ground Effect, Drag, Gravity)
+    const thrustMagnitude = (this.isAfterburner ? this.afterburnerThrust : this.thrustForce) * this.throttle;
+    const thrust = forward.clone().multiplyScalar(thrustMagnitude);
     this.velocity.addScaledVector(thrust, dt);
 
-    // Aerodynamic Lift: generated perpendicular to forward vector
-    // Lift factor drops sharply if airspeed is below stall speed
-    let liftCoeff = 1.0;
-    if (this.speed < this.stallSpeed) {
-      liftCoeff = Math.max(0, this.speed / this.stallSpeed);
-      this.isStalled = (!this.isGrounded && this.speed < this.stallSpeed && this.throttle < 0.6);
+    // Calculate Angle of Attack (AoA)
+    const velLen = this.velocity.length();
+    let aoa = 0;
+    if (velLen > 0.1) {
+      const velDir = this.velocity.clone().normalize();
+      aoa = -Math.asin(THREE.MathUtils.clamp(velDir.dot(up), -1, 1)) * (180 / Math.PI);
+    }
+    this.aoa = aoa;
+
+    // Aerodynamic Lift with AoA curve
+    let liftCoeff = THREE.MathUtils.clamp(1.0 + (aoa / 12.0) * 0.9, -0.4, 2.4);
+
+    if (this.speed < this.stallSpeed && Math.abs(aoa) > 18) {
+      liftCoeff *= Math.max(0.2, this.speed / this.stallSpeed);
+      this.isStalled = (!this.isGrounded && this.throttle < 0.6);
     } else {
       this.isStalled = false;
     }
 
     if (this.isStalled) {
       this.stallTimer += dt;
-      if (this.audioEngine && (this.stallTimer % 0.6) < 0.25) {
+      if (this.audioEngine && (this.stallTimer % 0.5) < 0.2) {
         this.audioEngine.playStallAlarm();
       }
-      // Stall nose-drop tendency
-      this.group.rotateOnAxis(new THREE.Vector3(1, 0, 0), dt * 0.85);
+      // Stall nose-drop recovery torque
+      this.group.rotateOnAxis(new THREE.Vector3(1, 0, 0), dt * 0.95);
     }
 
-    const liftForce = up.clone().multiplyScalar(liftCoeff * Math.min(32.0, (this.speed * this.speed) * 0.055));
+    // Ground Effect Cushion: within 1 wingspan (< 12m), induced drag drops & lift rises
+    const groundY = this.terrain.getHeightAt(this.group.position.x, this.group.position.z);
+    const minAltitude = groundY + this.gearHeight;
+    const altAboveGround = Math.max(0, this.group.position.y - minAltitude);
+    const groundEffect = THREE.MathUtils.clamp(1.0 - (altAboveGround / 12.0), 0.0, 1.0);
+    const liftMultiplier = 1.0 + groundEffect * 0.24;
+    const dragMultiplier = 1.0 - groundEffect * 0.32;
+
+    const liftMagnitude = liftCoeff * Math.min(38.0, (this.speed * this.speed) * 0.054) * liftMultiplier;
+    const liftForce = up.clone().multiplyScalar(liftMagnitude);
+
     if (!this.isGrounded) {
       this.velocity.addScaledVector(liftForce, dt);
+    } else {
+      // Takeoff transition: when lift overcomes gravity + margin and speed is sufficient
+      if (liftMagnitude > 9.81 * 1.06 && this.speed > this.minTakeoffSpeed) {
+        this.isGrounded = false;
+        this.velocity.y += (liftMagnitude - 9.81) * dt * 0.8;
+      }
     }
 
-    // Aerodynamic Drag (proportional to velocity squared)
-    const dragCoeff = 0.012 + (this.brakes ? 0.035 : 0.0);
-    const drag = this.velocity.clone().multiplyScalar(-dragCoeff * this.velocity.length());
+    // G-force calculation for HUD and camera feedback
+    this.gForce = THREE.MathUtils.lerp(this.gForce, 1.0 + (liftMagnitude - 9.81) / 9.81, dt * 7.0);
+
+    // Aerodynamic Drag
+    const baseDrag = 0.0105 + (this.brakes ? 0.042 : 0.0);
+    const totalDrag = baseDrag * dragMultiplier;
+    const drag = this.velocity.clone().multiplyScalar(-totalDrag * velLen);
     this.velocity.addScaledVector(drag, dt);
 
     // Gravity
@@ -540,7 +652,7 @@ export class Airplane {
 
     // Ground rolling friction & wheel brakes
     if (this.isGrounded) {
-      const brakeForce = this.brakes ? 16.0 : 2.5;
+      const brakeForce = this.brakes ? 22.0 : 2.6;
       const forwardVel = forward.clone().multiplyScalar(this.velocity.dot(forward));
       const lateralVel = this.velocity.clone().sub(forwardVel);
 
@@ -561,10 +673,6 @@ export class Airplane {
     // 4. Integrate Position & Ground Collision Detection
     this.group.position.addScaledVector(this.velocity, dt);
 
-    // Island Terrain Height Clamp
-    const groundY = this.terrain.getHeightAt(this.group.position.x, this.group.position.z);
-    const minAltitude = groundY + this.gearHeight;
-
     if (this.group.position.y <= minAltitude) {
       const sinkRate = -this.velocity.y;
       this.group.position.y = minAltitude;
@@ -573,13 +681,14 @@ export class Airplane {
       if (!this.isGrounded) {
         // Touchdown event!
         this.isGrounded = true;
+        this.groundPitch = 0;
         if (sinkRate > 1.8 && this.audioEngine) {
           this.audioEngine.playTouchdownScreech();
         }
       }
     } else {
       // In air
-      if (this.group.position.y > minAltitude + 0.3) {
+      if (this.group.position.y > minAltitude + 0.25) {
         this.isGrounded = false;
       }
     }
@@ -589,20 +698,20 @@ export class Airplane {
       this.pilot.position.copy(this.group.position);
     }
 
-    // Audio engine update
+    // Audio engine update with afterburner & wind speed
     if (this.isPilotInside && this.audioEngine) {
-      this.audioEngine.updatePlaneEngine(this.throttle, this.speed);
+      this.audioEngine.updatePlaneEngine(this.throttle, this.speed, this.isAfterburner);
     }
 
     // Wingtip Vapor Trails / Contrails during high G or high speed
-    if (!this.isGrounded && (this.speed > 32 || Math.abs(this.rollRate) > 1.2 || this.pitchRate > 0.8)) {
+    if (!this.isGrounded && (this.speed > 30 || Math.abs(this.rollRate) > 1.1 || Math.abs(this.gForce - 1.0) > 0.8)) {
       this.trailTimer += dt;
-      if (this.trailTimer > 0.05 && this.particleEngine) {
+      if (this.trailTimer > 0.045 && this.particleEngine) {
         this.trailTimer = 0;
         const leftTip = this.group.position.clone().add(right.clone().multiplyScalar(-6.7));
         const rightTip = this.group.position.clone().add(right.clone().multiplyScalar(6.7));
-        this.particleEngine.spawnDustCloud(leftTip, 0.4);
-        this.particleEngine.spawnDustCloud(rightTip, 0.4);
+        this.particleEngine.spawnDustCloud(leftTip, 0.35);
+        this.particleEngine.spawnDustCloud(rightTip, 0.35);
       }
     }
   }

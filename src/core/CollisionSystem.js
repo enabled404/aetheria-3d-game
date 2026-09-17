@@ -62,7 +62,43 @@ export class CollisionSystem {
     }
   }
 
-  getNearbyColliders(x, z, searchRadius = 4.0) {
+  updateCollider(col, newX, newZ) {
+    if (!col || !col.active) return;
+    // Unlink from current cells
+    if (col.cells) {
+      for (const key of col.cells) {
+        const list = this.grid.get(key);
+        if (list) {
+          const idx = list.indexOf(col);
+          if (idx !== -1) list.splice(idx, 1);
+        }
+      }
+    }
+
+    col.x = newX;
+    col.z = newZ;
+
+    const minCellX = Math.floor((newX - col.radius) / this.cellSize);
+    const maxCellX = Math.floor((newX + col.radius) / this.cellSize);
+    const minCellZ = Math.floor((newZ - col.radius) / this.cellSize);
+    const maxCellZ = Math.floor((newZ + col.radius) / this.cellSize);
+
+    col.cells = [];
+    for (let cx = minCellX; cx <= maxCellX; cx++) {
+      for (let cz = minCellZ; cz <= maxCellZ; cz++) {
+        const key = this._getKey(cx, cz);
+        let list = this.grid.get(key);
+        if (!list) {
+          list = [];
+          this.grid.set(key, list);
+        }
+        list.push(col);
+        col.cells.push(key);
+      }
+    }
+  }
+
+  getNearbyColliders(x, z, searchRadius = 5.0) {
     const minCellX = Math.floor((x - searchRadius) / this.cellSize);
     const maxCellX = Math.floor((x + searchRadius) / this.cellSize);
     const minCellZ = Math.floor((z - searchRadius) / this.cellSize);
@@ -89,12 +125,13 @@ export class CollisionSystem {
   }
 
   /**
-   * Resolves circle collision for an entity against static obstacles.
-   * Modifies pos in place and cancels perpendicular inward velocity for smooth sliding.
+   * Resolves circle collision for an entity against static & dynamic obstacles.
+   * Modifies pos in place and cancels perpendicular inward velocity for smooth tangential sliding.
    */
-  resolveCircleCollision(pos, entityRadius = 0.45, velocity = null, maxIterations = 2) {
+  resolveCircleCollision(pos, entityRadius = 0.45, velocity = null, maxIterations = 4) {
+    let anyCollided = false;
     for (let iter = 0; iter < maxIterations; iter++) {
-      const nearby = this.getNearbyColliders(pos.x, pos.z, entityRadius + 3.0);
+      const nearby = this.getNearbyColliders(pos.x, pos.z, entityRadius + 4.0);
       let collided = false;
 
       for (let i = 0; i < nearby.length; i++) {
@@ -106,6 +143,7 @@ export class CollisionSystem {
 
         if (distSq < minDist * minDist) {
           collided = true;
+          anyCollided = true;
           const dist = Math.sqrt(distSq);
 
           if (dist > 0.0001) {
@@ -113,11 +151,11 @@ export class CollisionSystem {
             const nx = dx / dist;
             const nz = dz / dist;
 
-            // Push entity out of obstacle
-            pos.x += nx * overlap;
-            pos.z += nz * overlap;
+            // Push entity out of obstacle with positive clearance
+            pos.x += nx * (overlap + 0.002);
+            pos.z += nz * (overlap + 0.002);
 
-            // Cancel velocity into the obstacle (allows smooth sliding along obstacle boundary)
+            // True tangential sliding: cancel inward normal velocity component
             if (velocity) {
               const dot = velocity.x * nx + velocity.z * nz;
               if (dot < 0) {
@@ -126,14 +164,17 @@ export class CollisionSystem {
               }
             }
           } else {
-            // Exactly on top of center - nudge randomly
-            pos.x += minDist;
+            // Exactly on top of center - push in random angle
+            const randAng = Math.random() * Math.PI * 2;
+            pos.x += Math.cos(randAng) * minDist;
+            pos.z += Math.sin(randAng) * minDist;
           }
         }
       }
 
       if (!collided) break;
     }
+    return anyCollided;
   }
 
   /**

@@ -326,9 +326,18 @@ export class Airport {
     hangarGroup.add(drum2);
 
     if (this.collisionSystem) {
-      this.collisionSystem.addCollider(hangarX, hangarZ + hangarDepth / 2, 4.0, 10.0, 'structure');
-      this.collisionSystem.addCollider(hangarX - hangarWidth / 2, hangarZ, 3.0, 10.0, 'structure');
-      this.collisionSystem.addCollider(hangarX + hangarWidth / 2, hangarZ, 3.0, 10.0, 'structure');
+      // Solid perimeter walls for hangar
+      const halfW = hangarWidth / 2;
+      const halfD = hangarDepth / 2;
+      // Back wall colliders
+      for (let bx = -halfW; bx <= halfW; bx += 3.5) {
+        this.collisionSystem.addCollider(hangarX + bx, hangarZ + halfD, 2.2, 12.0, 'structure');
+      }
+      // Left and Right side walls
+      for (let bz = -halfD + 2; bz <= halfD - 2; bz += 3.5) {
+        this.collisionSystem.addCollider(hangarX - halfW, hangarZ + bz, 2.0, 12.0, 'structure');
+        this.collisionSystem.addCollider(hangarX + halfW, hangarZ + bz, 2.0, 12.0, 'structure');
+      }
     }
 
     this.group.add(hangarGroup);

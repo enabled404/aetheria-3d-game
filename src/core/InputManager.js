@@ -6,6 +6,8 @@ export class InputManager {
     this.mouseButtons = {};
     this.justPressedMouse = {};
     this.mouseDelta = { x: 0, y: 0 };
+    this.mouseWheelDelta = 0;
+    this.isFlightMode = false;
     this.isPointerLocked = false;
     this.selectedHotbarIndex = 0;
 
@@ -63,10 +65,13 @@ export class InputManager {
 
     window.addEventListener('wheel', (e) => {
       if (!this.isPointerLocked) return;
-      if (e.deltaY > 0) {
-        this.selectedHotbarIndex = (this.selectedHotbarIndex + 1) % 6;
-      } else if (e.deltaY < 0) {
-        this.selectedHotbarIndex = (this.selectedHotbarIndex + 5) % 6;
+      this.mouseWheelDelta += e.deltaY;
+      if (!this.isFlightMode) {
+        if (e.deltaY > 0) {
+          this.selectedHotbarIndex = (this.selectedHotbarIndex + 1) % 6;
+        } else if (e.deltaY < 0) {
+          this.selectedHotbarIndex = (this.selectedHotbarIndex + 5) % 6;
+        }
       }
     }, { passive: true });
 
@@ -110,6 +115,12 @@ export class InputManager {
     this.mouseDelta.x = 0;
     this.mouseDelta.y = 0;
     return d;
+  }
+
+  consumeMouseWheelDelta() {
+    const val = this.mouseWheelDelta;
+    this.mouseWheelDelta = 0;
+    return val;
   }
 
   clearFrame() {
