@@ -129,9 +129,11 @@ export class SkyAtmosphere {
 
   createPuffyClouds() {
     this.cloudGroup = new THREE.Group();
+    this.cloudSpheres = [];
+
     const cloudMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      roughness: 0.85,
+      roughness: 0.82,
       metalness: 0.05,
       transparent: true,
       opacity: 0.88,
@@ -140,31 +142,61 @@ export class SkyAtmosphere {
 
     const sphereGeom = new THREE.DodecahedronGeometry(1.0, 1);
 
-    for (let c = 0; c < 24; c++) {
-      const cluster = new THREE.Group();
-      const numPuffs = 6 + Math.floor(Math.random() * 6);
-      const baseScale = 8 + Math.random() * 8;
+    // Multi-tier clouds: low cumulus (45-75m), mid towers (100-140m), high stratus (210-260m)
+    const tiers = [
+      { count: 18, baseAlt: 55, altVar: 20, scaleMin: 9, scaleVar: 8, puffs: 7 },
+      { count: 16, baseAlt: 115, altVar: 25, scaleMin: 14, scaleVar: 12, puffs: 9 },
+      { count: 10, baseAlt: 230, altVar: 30, scaleMin: 22, scaleVar: 16, puffs: 11 }
+    ];
 
-      for (let p = 0; p < numPuffs; p++) {
-        const puff = new THREE.Mesh(sphereGeom, cloudMat);
-        puff.position.set(
-          (Math.random() - 0.5) * baseScale * 1.6,
-          (Math.random() - 0.5) * baseScale * 0.45,
-          (Math.random() - 0.5) * baseScale * 1.2
-        );
-        const s = baseScale * (0.55 + Math.random() * 0.55);
-        puff.scale.set(s, s * 0.55, s);
-        cluster.add(puff);
+    for (const tier of tiers) {
+      for (let c = 0; c < tier.count; c++) {
+        const cluster = new THREE.Group();
+        const numPuffs = tier.puffs + Math.floor(Math.random() * 4);
+        const baseScale = tier.scaleMin + Math.random() * tier.scaleVar;
+
+        const clusterX = (Math.random() - 0.5) * 520;
+        const clusterY = tier.baseAlt + (Math.random() - 0.5) * tier.altVar;
+        const clusterZ = (Math.random() - 0.5) * 520;
+
+        for (let p = 0; p < numPuffs; p++) {
+          const puff = new THREE.Mesh(sphereGeom, cloudMat);
+          const px = (Math.random() - 0.5) * baseScale * 1.7;
+          const py = (Math.random() - 0.5) * baseScale * 0.48;
+          const pz = (Math.random() - 0.5) * baseScale * 1.3;
+          puff.position.set(px, py, pz);
+
+          const s = baseScale * (0.6 + Math.random() * 0.55);
+          puff.scale.set(s, s * 0.55, s);
+          cluster.add(puff);
+
+          // Store for fly-through collision / vapor detection
+          this.cloudSpheres.push({
+            pos: new THREE.Vector3(clusterX + px, clusterY + py, clusterZ + pz),
+            radius: s * 1.2
+          });
+        }
+
+        cluster.position.set(clusterX, clusterY, clusterZ);
+        this.cloudGroup.add(cluster);
       }
-
-      cluster.position.set(
-        (Math.random() - 0.5) * 440,
-        90 + Math.random() * 25,
-        (Math.random() - 0.5) * 440
-      );
-      this.cloudGroup.add(cluster);
     }
+
     this.scene.add(this.cloudGroup);
+  }
+
+  isInsideCloud(position, buffer = 4.0) {
+    if (!position || !this.cloudSpheres) return false;
+    for (let i = 0; i < this.cloudSpheres.length; i += 2) { // sample every other puff for speed
+      const c = this.cloudSpheres[i];
+      const dx = position.x - (c.pos.x + this.cloudGroup.position.x);
+      const dy = position.y - c.pos.y;
+      const dz = position.z - c.pos.z;
+      if (dx * dx + dy * dy + dz * dz < (c.radius + buffer) * (c.radius + buffer)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   update(dt, playerPosition) {

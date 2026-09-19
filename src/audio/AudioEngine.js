@@ -750,5 +750,162 @@ export class AudioEngine {
     osc.start(now);
     osc.stop(now + 0.12);
   }
+
+  playSonicBoom() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+
+    // Supersonic N-Wave double shockwave detonation
+    // 1. Initial High-Pressure Compression Wave
+    const osc1 = this.ctx.createOscillator();
+    const g1 = this.ctx.createGain();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(260, now);
+    osc1.frequency.exponentialRampToValueAtTime(32, now + 0.35);
+
+    g1.gain.setValueAtTime(0.75, now);
+    g1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    osc1.connect(g1);
+    g1.connect(this.sfxGain);
+    osc1.start(now);
+    osc1.stop(now + 0.4);
+
+    // 2. Secondary Expansion Wave (85ms delay)
+    const osc2 = this.ctx.createOscillator();
+    const g2 = this.ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(140, now + 0.085);
+    osc2.frequency.exponentialRampToValueAtTime(24, now + 0.6);
+
+    g2.gain.setValueAtTime(0.0, now);
+    g2.gain.setValueAtTime(0.65, now + 0.085);
+    g2.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
+    osc2.connect(g2);
+    g2.connect(this.sfxGain);
+    osc2.start(now + 0.085);
+    osc2.stop(now + 0.65);
+
+    // 3. Sub-Bass Environmental Shockwave Rumble
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.8);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.25));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(120, now);
+    filter.frequency.exponentialRampToValueAtTime(40, now + 0.8);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.65, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(this.sfxGain);
+    noise.start(now);
+  }
+
+  playMissileLock() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+
+    // Authentic Sidewinder-style alternating dual-tone lock warble
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(1250, now);
+    osc.frequency.setValueAtTime(1620, now + 0.04);
+    osc.frequency.setValueAtTime(1250, now + 0.08);
+    osc.frequency.setValueAtTime(1620, now + 0.12);
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(now);
+    osc.stop(now + 0.16);
+  }
+
+  playMissileLaunch() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+
+    // Solid rocket motor ignition crack + roaring booster exhaust
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(380, now);
+    osc.frequency.exponentialRampToValueAtTime(95, now + 0.4);
+
+    g.gain.setValueAtTime(0.4, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    osc.connect(g);
+    g.connect(this.sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.4);
+
+    // Rocket booster hiss
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.7);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.35));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1800, now);
+    filter.Q.setValueAtTime(2.0, now);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.35, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(this.sfxGain);
+    noise.start(now);
+  }
+
+  announceVoice(phrase) {
+    // Cockpit Voice Warning System ("Bitchin' Betty")
+    if (!phrase) return;
+    const now = Date.now();
+    if (!this.lastAnnounceTime) this.lastAnnounceTime = {};
+    if (this.lastAnnounceTime[phrase] && now - this.lastAnnounceTime[phrase] < 4500) {
+      return; // Debounce repetitive voice callouts
+    }
+    this.lastAnnounceTime[phrase] = now;
+
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(phrase);
+        utter.rate = 1.18;
+        utter.pitch = 1.1;
+        utter.volume = Math.min(1.0, (settings.get('sfxVolume') ?? 0.7) * 1.2);
+        
+        // Select an English voice if available
+        const voices = window.speechSynthesis.getVoices();
+        const engVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Victoria') || v.name.includes('Google') || v.name.includes('Zira') || v.name.includes('Female')));
+        if (engVoice) utter.voice = engVoice;
+
+        window.speechSynthesis.speak(utter);
+      } catch (e) {}
+    }
+  }
 }
 

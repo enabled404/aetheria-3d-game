@@ -50,11 +50,29 @@ export class Airplane {
     this.rudder = null;
     this.noseGearGroup = null;
     this.noseGearWheel = null;
+    this.leftMainGear = null;
+    this.rightMainGear = null;
     this.mainGearWheels = [];
+    this.gearPosition = 1.0; // 1.0 = down, 0.0 = retracted
+    this.targetGearPosition = 1.0;
     this.strobeLights = [];
     this.strobeTimer = 0;
     this.trailTimer = 0;
     this.weaponCooldown = 0;
+
+    // Supersonic & Guided Missile systems
+    this.afterburnerFlames = [];
+    this.shockDiamonds = [];
+    this.afterburnerLight = null;
+    this.vaporCone = null;
+    this.isSupersonic = false;
+    this.mach = 0.0;
+    this.missileAmmo = 4;
+    this.missileCooldown = 0;
+    this.activeMissiles = [];
+    this.missileMeshes = [];
+    this.lockedTarget = null;
+    this.cameraController = null;
 
     // Spatial Colliders for Solid Obstacle Presence on Foot
     this.colliders = [];
@@ -263,14 +281,60 @@ export class Airplane {
       fuselageGroup.add(propGroup);
       this.propellers.push(propGroup);
 
-      // Afterburner Exhaust Glow at rear of engine
-      const exhaustGeom = new THREE.CylinderGeometry(0.28, 0.28, 0.1, 10);
+      // Supersonic Afterburner Exhaust Nozzles & Shock Diamond Cones
+      const exhaustGeom = new THREE.CylinderGeometry(0.32, 0.32, 0.15, 12);
       exhaustGeom.rotateX(Math.PI / 2);
-      const exhaustMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+      const exhaustMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.95 });
       const exhaust = new THREE.Mesh(exhaustGeom, exhaustMat);
       exhaust.position.set(engX, -0.1, -0.65);
       fuselageGroup.add(exhaust);
+
+      // Outer supersonic afterburner flame plume
+      const flameGeom = new THREE.ConeGeometry(0.38, 3.2, 10);
+      flameGeom.rotateX(-Math.PI / 2);
+      const flameMat = new THREE.MeshBasicMaterial({
+        color: 0xff5500,
+        transparent: true,
+        opacity: 0.0,
+        blending: THREE.AdditiveBlending
+      });
+      const flame = new THREE.Mesh(flameGeom, flameMat);
+      flame.position.set(engX, -0.1, -2.2);
+      fuselageGroup.add(flame);
+
+      // Inner high-density shock diamond core
+      const diamondGeom = new THREE.OctahedronGeometry(0.18, 0);
+      diamondGeom.scale(0.8, 0.8, 2.4);
+      const diamondMat = new THREE.MeshBasicMaterial({
+        color: 0xffee88,
+        transparent: true,
+        opacity: 0.0,
+        blending: THREE.AdditiveBlending
+      });
+      const diamond = new THREE.Mesh(diamondGeom, diamondMat);
+      diamond.position.set(engX, -0.1, -1.8);
+      fuselageGroup.add(diamond);
+
+      this.afterburnerFlames.push({ flame, diamond, flameMat, diamondMat });
     }
+
+    // Dynamic Afterburner Nozzle Point Light
+    this.afterburnerLight = new THREE.PointLight(0xff5500, 0.0, 36);
+    this.afterburnerLight.position.set(0, -0.1, -2.5);
+    fuselageGroup.add(this.afterburnerLight);
+
+    // Transonic Condensation Vapor Cone (Prandtl-Glauert Singularity)
+    const vaporGeom = new THREE.ConeGeometry(2.6, 1.1, 16, 1, true);
+    vaporGeom.rotateX(Math.PI / 2);
+    const vaporMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.0,
+      side: THREE.DoubleSide
+    });
+    this.vaporCone = new THREE.Mesh(vaporGeom, vaporMat);
+    this.vaporCone.position.set(0, 0.2, 0.4);
+    fuselageGroup.add(this.vaporCone);
 
     // 5. Tricycle Landing Gear (Nose Wheel + Main Gear)
     const strutMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.9 });
@@ -278,7 +342,7 @@ export class Airplane {
     const wheelGeom = new THREE.CylinderGeometry(0.35, 0.35, 0.22, 12);
     wheelGeom.rotateZ(Math.PI / 2);
 
-    // Nose Gear (Steerable)
+    // Nose Gear (Steerable & Retractable)
     this.noseGearGroup = new THREE.Group();
     this.noseGearGroup.position.set(0, -0.4, 3.8);
 
@@ -293,24 +357,30 @@ export class Airplane {
     this.noseGearGroup.add(this.noseGearWheel);
     fuselageGroup.add(this.noseGearGroup);
 
-    // Main Gear (Left & Right)
-    for (const mgX of [-2.4, 2.4]) {
-      const mainGearGroup = new THREE.Group();
-      mainGearGroup.position.set(mgX, -0.15, 0.3);
+    // Main Gear (Left & Right Retractable)
+    this.leftMainGear = new THREE.Group();
+    this.leftMainGear.position.set(-2.4, -0.15, 0.3);
+    const leftMainStrut = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.35, 8), strutMat);
+    leftMainStrut.position.y = -0.68;
+    this.leftMainGear.add(leftMainStrut);
+    const leftWheel = new THREE.Mesh(wheelGeom, tireMat);
+    leftWheel.position.y = -1.35;
+    leftWheel.castShadow = true;
+    this.leftMainGear.add(leftWheel);
+    this.mainGearWheels.push(leftWheel);
+    fuselageGroup.add(this.leftMainGear);
 
-      const mainStrutGeom = new THREE.CylinderGeometry(0.08, 0.08, 1.35, 8);
-      const mainStrut = new THREE.Mesh(mainStrutGeom, strutMat);
-      mainStrut.position.y = -0.68;
-      mainGearGroup.add(mainStrut);
-
-      const mainWheel = new THREE.Mesh(wheelGeom, tireMat);
-      mainWheel.position.y = -1.35;
-      mainWheel.castShadow = true;
-      mainGearGroup.add(mainWheel);
-      this.mainGearWheels.push(mainWheel);
-
-      fuselageGroup.add(mainGearGroup);
-    }
+    this.rightMainGear = new THREE.Group();
+    this.rightMainGear.position.set(2.4, -0.15, 0.3);
+    const rightMainStrut = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.35, 8), strutMat);
+    rightMainStrut.position.y = -0.68;
+    this.rightMainGear.add(rightMainStrut);
+    const rightWheel = new THREE.Mesh(wheelGeom, tireMat);
+    rightWheel.position.y = -1.35;
+    rightWheel.castShadow = true;
+    this.rightMainGear.add(rightWheel);
+    this.mainGearWheels.push(rightWheel);
+    fuselageGroup.add(this.rightMainGear);
 
     // 6. Navigation Lights & Wingtip Strobes
     const navLensGeom = new THREE.SphereGeometry(0.08, 8, 8);
@@ -352,6 +422,43 @@ export class Airplane {
       const barrel = new THREE.Mesh(barrelGeom, barrelMat);
       barrel.position.set(gunX, 0.08, 1.2);
       fuselageGroup.add(barrel);
+    }
+
+    // 8. Under-Wing Missile Pylons & Guided Air-to-Air Missiles
+    const pylonMat = new THREE.MeshStandardMaterial({ color: 0x182436, metalness: 0.8 });
+    const missileMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.6, roughness: 0.3 });
+    const missileFinMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 });
+
+    const pylonOffsets = [-5.2, -4.4, 4.4, 5.2];
+    for (let i = 0; i < pylonOffsets.length; i++) {
+      const px = pylonOffsets[i];
+      const pylon = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 1.2), pylonMat);
+      pylon.position.set(px, 0.02, 0.4);
+      fuselageGroup.add(pylon);
+
+      // Missile Model
+      const missileGroup = new THREE.Group();
+      missileGroup.position.set(px, -0.16, 0.4);
+
+      const mBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.5, 8), missileMat);
+      mBody.rotateX(Math.PI / 2);
+      missileGroup.add(mBody);
+
+      const mNose = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 8), new THREE.MeshBasicMaterial({ color: 0x00e5ff }));
+      mNose.rotateX(-Math.PI / 2);
+      mNose.position.z = 0.92;
+      missileGroup.add(mNose);
+
+      // Fins
+      for (let f = 0; f < 4; f++) {
+        const fin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.26, 0.3), missileFinMat);
+        fin.rotation.z = (f * Math.PI) / 2;
+        fin.position.z = -0.55;
+        missileGroup.add(fin);
+      }
+
+      fuselageGroup.add(missileGroup);
+      this.missileMeshes.push(missileGroup);
     }
 
     this.group.add(fuselageGroup);
@@ -673,6 +780,100 @@ export class Airplane {
     // 4. Integrate Position & Ground Collision Detection
     this.group.position.addScaledVector(this.velocity, dt);
 
+    // Auto-retract / deploy landing gear based on altitude and ground state
+    if (!this.isGrounded && altAboveGround > 4.5 && this.targetGearPosition === 1.0) {
+      this.targetGearPosition = 0.0;
+      if (this.audioEngine) this.audioEngine.announceVoice('GEAR UP');
+    } else if (altAboveGround < 5.5 && this.velocity.y < 0 && this.targetGearPosition === 0.0) {
+      this.targetGearPosition = 1.0;
+      if (this.audioEngine) this.audioEngine.announceVoice('GEAR DOWN');
+    }
+
+    // Manual Gear Toggle key (G)
+    if (inputManager && inputManager.isKeyDown('KeyG') && !this.gearKeyDebounce) {
+      this.gearKeyDebounce = true;
+      this.targetGearPosition = this.targetGearPosition > 0.5 ? 0.0 : 1.0;
+      if (this.audioEngine) {
+        this.audioEngine.announceVoice(this.targetGearPosition > 0.5 ? 'GEAR DOWN' : 'GEAR UP');
+      }
+    } else if (inputManager && !inputManager.isKeyDown('KeyG')) {
+      this.gearKeyDebounce = false;
+    }
+
+    // Animate Retractable Gear
+    this.gearPosition = THREE.MathUtils.lerp(this.gearPosition, this.targetGearPosition, dt * 2.8);
+    if (this.noseGearGroup) {
+      this.noseGearGroup.rotation.x = (1.0 - this.gearPosition) * 1.45;
+      this.noseGearGroup.visible = this.gearPosition > 0.05;
+    }
+    if (this.leftMainGear) {
+      this.leftMainGear.rotation.z = -(1.0 - this.gearPosition) * 1.35;
+      this.leftMainGear.visible = this.gearPosition > 0.05;
+    }
+    if (this.rightMainGear) {
+      this.rightMainGear.rotation.z = (1.0 - this.gearPosition) * 1.35;
+      this.rightMainGear.visible = this.gearPosition > 0.05;
+    }
+
+    // Supersonic & Mach calculations (42 m/s = Mach 1.0)
+    this.mach = this.speed / 42.0;
+
+    // Sonic Boom shockwave detonation
+    if (!this.isSupersonic && this.mach >= 1.0) {
+      this.isSupersonic = true;
+      if (this.audioEngine) this.audioEngine.playSonicBoom();
+      if (this.cameraController) this.cameraController.addShake(0.48);
+      if (this.particleEngine) {
+        this.particleEngine.spawnSparks(this.group.position, 48, 0x00ffff, 20.0);
+      }
+    } else if (this.mach < 0.93) {
+      this.isSupersonic = false;
+    }
+
+    // Transonic Vapor Cone (Prandtl-Glauert Singularity)
+    if (this.vaporCone) {
+      if (this.mach >= 0.88 && this.mach <= 1.08 && !this.isGrounded) {
+        const intensity = 1.0 - Math.abs(this.mach - 0.98) / 0.1;
+        this.vaporCone.material.opacity = Math.max(0, intensity * 0.75);
+        this.vaporCone.scale.set(1.0 + Math.random() * 0.08, 1.0 + Math.random() * 0.08, 1.0);
+      } else {
+        this.vaporCone.material.opacity = 0;
+      }
+    }
+
+    // Supersonic Afterburner shock diamond plumes & dynamic light
+    if (this.afterburnerFlames.length > 0) {
+      for (const { flame, diamond, flameMat, diamondMat } of this.afterburnerFlames) {
+        if (this.isAfterburner) {
+          const flicker = 0.85 + Math.random() * 0.3;
+          flameMat.opacity = 0.92;
+          diamondMat.opacity = 0.88;
+          flame.scale.set(1.0, 1.0, flicker * 1.4);
+          diamond.scale.set(0.8, 0.8, 2.2 * flicker);
+        } else if (this.throttle > 0.35) {
+          flameMat.opacity = this.throttle * 0.35;
+          diamondMat.opacity = 0.0;
+          flame.scale.set(0.6, 0.6, 0.5);
+        } else {
+          flameMat.opacity = 0.0;
+          diamondMat.opacity = 0.0;
+        }
+      }
+    }
+    if (this.afterburnerLight) {
+      this.afterburnerLight.intensity = this.isAfterburner ? 4.2 : (this.throttle > 0.4 ? 0.8 : 0.0);
+    }
+
+    // Cockpit Voice Warnings
+    if (this.isPilotInside && this.audioEngine) {
+      if (this.gForce > 4.5) {
+        this.audioEngine.announceVoice('WARNING: OVER G');
+      }
+      if (!this.isGrounded && -this.velocity.y > 10.0 && altAboveGround < 32.0) {
+        this.audioEngine.announceVoice('PULL UP, TERRAIN');
+      }
+    }
+
     if (this.group.position.y <= minAltitude) {
       const sinkRate = -this.velocity.y;
       this.group.position.y = minAltitude;
@@ -712,6 +913,124 @@ export class Airplane {
         const rightTip = this.group.position.clone().add(right.clone().multiplyScalar(6.7));
         this.particleEngine.spawnDustCloud(leftTip, 0.35);
         this.particleEngine.spawnDustCloud(rightTip, 0.35);
+      }
+    }
+
+    // Update active guided missiles
+    this.updateMissiles(dt);
+  }
+
+  fireMissile(targetDrone = null) {
+    if (this.missileAmmo <= 0 || this.missileCooldown > 0) return false;
+    this.missileAmmo--;
+    this.missileCooldown = 1.2;
+
+    // Hide one under-wing missile mesh
+    if (this.missileMeshes[this.missileAmmo]) {
+      this.missileMeshes[this.missileAmmo].visible = false;
+    }
+
+    const forward = this.getForwardVector();
+    const right = this.getRightVector();
+    const pylonOffset = (this.missileAmmo % 2 === 0 ? -4.4 : 4.4);
+    const spawnPos = this.group.position.clone()
+      .add(right.clone().multiplyScalar(pylonOffset))
+      .add(forward.clone().multiplyScalar(1.2))
+      .add(new THREE.Vector3(0, -0.3, 0));
+
+    const missileMesh = new THREE.Group();
+    const mBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1, 0.1, 1.6, 8),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.8 })
+    );
+    mBody.rotateX(Math.PI / 2);
+    missileMesh.add(mBody);
+
+    const mNose = new THREE.Mesh(
+      new THREE.ConeGeometry(0.1, 0.4, 8),
+      new THREE.MeshBasicMaterial({ color: 0x00ffff })
+    );
+    mNose.rotateX(-Math.PI / 2);
+    mNose.position.z = 1.0;
+    missileMesh.add(mNose);
+
+    missileMesh.position.copy(spawnPos);
+    missileMesh.quaternion.copy(this.group.quaternion);
+    this.scene.add(missileMesh);
+
+    const missile = {
+      mesh: missileMesh,
+      pos: spawnPos,
+      velocity: forward.clone().multiplyScalar(this.speed + 22.0),
+      target: targetDrone,
+      life: 6.0,
+      speed: this.speed + 22.0,
+      trailTimer: 0
+    };
+    this.activeMissiles.push(missile);
+
+    if (this.audioEngine) {
+      this.audioEngine.playMissileLaunch();
+      this.audioEngine.announceVoice('MISSILE AWAY');
+    }
+    if (this.cameraController) {
+      this.cameraController.addShake(0.18);
+    }
+    return true;
+  }
+
+  updateMissiles(dt) {
+    this.missileCooldown = Math.max(0, this.missileCooldown - dt);
+
+    for (let i = this.activeMissiles.length - 1; i >= 0; i--) {
+      const m = this.activeMissiles[i];
+      m.life -= dt;
+      m.speed = Math.min(95.0, m.speed + 45.0 * dt);
+
+      let fwd = m.velocity.clone().normalize();
+
+      // Proportional Navigation Homing toward target drone
+      if (m.target && !m.target.isDead) {
+        const toTarget = m.target.group.position.clone().sub(m.mesh.position).normalize();
+        fwd.lerp(toTarget, Math.min(1.0, dt * 6.5)).normalize();
+      }
+
+      m.velocity.copy(fwd.clone().multiplyScalar(m.speed));
+      m.mesh.position.addScaledVector(m.velocity, dt);
+      m.mesh.lookAt(m.mesh.position.clone().add(fwd.clone().multiplyScalar(10)));
+
+      // Rocket booster smoke trail
+      m.trailTimer += dt;
+      if (m.trailTimer > 0.035 && this.particleEngine) {
+        m.trailTimer = 0;
+        this.particleEngine.spawnDustCloud(m.mesh.position, 0.35);
+        this.particleEngine.spawnSparks(m.mesh.position, 2, 0xff8800, 3.0);
+      }
+
+      // Hit target drone check
+      let hit = false;
+      if (m.target && !m.target.isDead) {
+        const dist = m.mesh.position.distanceTo(m.target.group.position);
+        if (dist < 4.2) {
+          hit = true;
+          m.target.takeDamage(120);
+        }
+      }
+
+      // Ground impact check
+      const groundY = this.terrain.getHeightAt(m.mesh.position.x, m.mesh.position.z);
+      if (m.mesh.position.y <= groundY + 0.5) hit = true;
+
+      if (hit || m.life <= 0) {
+        if (this.particleEngine) {
+          this.particleEngine.spawnExplosion(m.mesh.position, 2.0);
+          this.particleEngine.spawnSparks(m.mesh.position, 28, 0xff7700, 16.0);
+        }
+        if (this.audioEngine) {
+          this.audioEngine.playHitSound();
+        }
+        this.scene.remove(m.mesh);
+        this.activeMissiles.splice(i, 1);
       }
     }
   }

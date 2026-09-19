@@ -59,6 +59,27 @@ export class FlightHUD {
           <div id="flight-speed-bar" style="width: 0%; height: 100%; background: #00ffff; transition: width 0.1s;"></div>
         </div>
         <div id="flight-g-val" style="font-size: 11px; color: #00ffaa; margin-top: 6px; font-weight: 700;">+1.0 G</div>
+        <div id="flight-mach-val" style="font-size: 11px; color: #7ad7ff; margin-top: 3px; font-weight: 700;">M 0.00</div>
+      </div>
+
+      <!-- Center Air-to-Air Radar Target Lock Reticle -->
+      <div id="flight-target-lock-box" style="
+        position: absolute;
+        width: 64px;
+        height: 64px;
+        border: 2px solid #00ffaa;
+        box-shadow: 0 0 16px rgba(0, 255, 170, 0.6);
+        transform: translate(-50%, -50%);
+        display: none;
+        pointer-events: none;
+        text-align: center;
+        font-size: 10px;
+        font-weight: 800;
+        color: #00ffaa;
+        letter-spacing: 1px;
+      ">
+        <div style="position: absolute; top: -16px; left: 50%; transform: translateX(-50%); white-space: nowrap;" id="flight-target-tag">◈ LOCK ON</div>
+        <div style="position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); white-space: nowrap;" id="flight-target-dist">140m</div>
       </div>
 
       <!-- Right Altimeter Tape -->
@@ -137,6 +158,10 @@ export class FlightHUD {
           <span id="flight-gear-tag" style="color: #00ff66; font-weight: 700;">GEAR DOWN</span>
           <span id="flight-brake-tag" style="color: #ffaa00; display: none;">BRAKES</span>
         </div>
+        <div style="margin-top: 6px; font-size: 11px; color: #00e5ff; font-weight: 700; display: flex; justify-content: space-between;">
+          <span>MISSILES:</span>
+          <span id="flight-missile-count" style="color: #fff;">4 / 4</span>
+        </div>
       </div>
 
       <!-- Bottom Flight Controls Helper Bar -->
@@ -157,12 +182,14 @@ export class FlightHUD {
         backdrop-filter: blur(8px);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       ">
+        <span><strong style="color: #ff4455;">RMB:</strong> Missile</span>
+        <span><strong style="color: #00ffff;">LMB:</strong> Cannons</span>
+        <span><strong style="color: #00ffaa;">G:</strong> Gear</span>
         <span><strong style="color: #00ffff;">Mouse / W/S:</strong> Pitch</span>
         <span><strong style="color: #00ffff;">Mouse / A/D:</strong> Roll</span>
         <span><strong style="color: #00ffff;">Q/E:</strong> Rudder</span>
         <span><strong style="color: #00ffff;">Shift/Ctrl/Wheel:</strong> Throttle</span>
         <span><strong style="color: #00ffff;">Space:</strong> Brakes</span>
-        <span><strong style="color: #00ffff;">LMB:</strong> Cannons</span>
         <span><strong style="color: #00ffff;">V:</strong> Camera</span>
         <span><strong style="color: #ff4466;">F:</strong> Exit</span>
       </div>
@@ -189,6 +216,7 @@ export class FlightHUD {
     this.speedValElem = document.getElementById('flight-speed-val');
     this.speedBarElem = document.getElementById('flight-speed-bar');
     this.gValElem = document.getElementById('flight-g-val');
+    this.machValElem = document.getElementById('flight-mach-val');
     this.altValElem = document.getElementById('flight-alt-val');
     this.vsiValElem = document.getElementById('flight-vsi-val');
     this.thrPctElem = document.getElementById('flight-thr-pct');
@@ -197,6 +225,10 @@ export class FlightHUD {
     this.stallAlertElem = document.getElementById('flight-stall-alert');
     this.gearTagElem = document.getElementById('flight-gear-tag');
     this.brakeTagElem = document.getElementById('flight-brake-tag');
+    this.missileCountElem = document.getElementById('flight-missile-count');
+    this.targetLockBox = document.getElementById('flight-target-lock-box');
+    this.targetTagElem = document.getElementById('flight-target-tag');
+    this.targetDistElem = document.getElementById('flight-target-dist');
   }
 
   show() {
@@ -207,7 +239,7 @@ export class FlightHUD {
     this.container.style.display = 'none';
   }
 
-  update(airplane) {
+  update(airplane, camera = null, rogueDrones = []) {
     if (!airplane || !airplane.isPilotInside) {
       this.hide();
       return;
@@ -230,6 +262,19 @@ export class FlightHUD {
       const sign = g >= 0 ? '+' : '';
       this.gValElem.textContent = `${sign}${g.toFixed(1)} G`;
       this.gValElem.style.color = (g > 3.5 || g < -0.5) ? '#ff3344' : (g > 2.5 ? '#ffaa00' : '#00ffaa');
+    }
+
+    // Mach Number
+    if (this.machValElem) {
+      const mach = airplane.mach || (airplane.speed / 42.0);
+      const isSuper = mach >= 1.0;
+      this.machValElem.textContent = isSuper ? `M ${mach.toFixed(2)} [SUPERSONIC]` : `M ${mach.toFixed(2)}`;
+      this.machValElem.style.color = isSuper ? '#ff8800' : '#7ad7ff';
+    }
+
+    // Missiles
+    if (this.missileCountElem) {
+      this.missileCountElem.textContent = `${airplane.missileAmmo} / 4`;
     }
 
     // 2. Altitude (Meters above Sea Level)
@@ -274,8 +319,14 @@ export class FlightHUD {
 
     // 5. Gear & Brakes
     if (this.gearTagElem) {
-      this.gearTagElem.textContent = airplane.isGrounded ? 'GEAR: DOWN' : 'AIRBORNE';
-      this.gearTagElem.style.color = airplane.isGrounded ? '#00ff66' : '#7ad7ff';
+      if (airplane.isGrounded) {
+        this.gearTagElem.textContent = 'GEAR: DOWN';
+        this.gearTagElem.style.color = '#00ff66';
+      } else {
+        const isDown = airplane.gearPosition > 0.4;
+        this.gearTagElem.textContent = isDown ? 'GEAR: DOWN' : 'GEAR: RETRACTED';
+        this.gearTagElem.style.color = isDown ? '#00ff66' : '#00e5ff';
+      }
     }
     if (this.brakeTagElem) {
       this.brakeTagElem.style.display = airplane.brakes ? 'inline' : 'none';
@@ -284,6 +335,59 @@ export class FlightHUD {
     // 6. Stall Warning
     if (this.stallAlertElem) {
       this.stallAlertElem.style.display = airplane.isStalled ? 'block' : 'none';
+    }
+
+    // 7. Air-to-Air Radar Target Lock Reticle
+    let lockedDrone = null;
+    if (camera && rogueDrones && rogueDrones.length > 0) {
+      const planePos = airplane.group.position;
+      let bestDist = 360.0;
+
+      for (const drone of rogueDrones) {
+        if (!drone || drone.isDead) continue;
+        const dPos = drone.group.position;
+        const toDrone = dPos.clone().sub(planePos);
+        const dist = toDrone.length();
+        if (dist > bestDist) continue;
+
+        toDrone.normalize();
+        const dot = fwd.dot(toDrone);
+        if (dot > 0.72) { // Within boresight cone
+          bestDist = dist;
+          lockedDrone = drone;
+        }
+      }
+    }
+
+    airplane.lockedTarget = lockedDrone;
+
+    if (lockedDrone && camera && this.targetLockBox) {
+      const dronePos = lockedDrone.group.position.clone();
+      dronePos.project(camera);
+
+      if (dronePos.z < 1.0) {
+        const screenX = (dronePos.x * 0.5 + 0.5) * window.innerWidth;
+        const screenY = (-(dronePos.y * 0.5) + 0.5) * window.innerHeight;
+
+        this.targetLockBox.style.display = 'block';
+        this.targetLockBox.style.left = `${screenX}px`;
+        this.targetLockBox.style.top = `${screenY}px`;
+
+        const dist = Math.round(airplane.group.position.distanceTo(lockedDrone.group.position));
+        if (this.targetDistElem) this.targetDistElem.textContent = `${dist}m`;
+
+        // Tone notification on new target acquisition
+        if (airplane.lastLockedId !== lockedDrone) {
+          airplane.lastLockedId = lockedDrone;
+          airplane.audioEngine?.playMissileLock();
+          airplane.audioEngine?.announceVoice('TARGET LOCK');
+        }
+      } else {
+        this.targetLockBox.style.display = 'none';
+      }
+    } else if (this.targetLockBox) {
+      this.targetLockBox.style.display = 'none';
+      airplane.lastLockedId = null;
     }
 
     // 7. Draw Pitch Ladder & Horizon on Canvas

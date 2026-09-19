@@ -45,6 +45,8 @@ import { GameCursor } from './ui/GameCursor.js';
 import { Airport } from './world/Airport.js';
 import { Airplane } from './entities/Airplane.js';
 import { FlightHUD } from './ui/FlightHUD.js';
+import { GrassSystem } from './world/GrassSystem.js';
+import { RogueDrone } from './entities/RogueDrone.js';
 
 // 1. Initialize Core Engine & Systems
 const canvas = document.getElementById('game-canvas');
@@ -67,6 +69,7 @@ const terrain = new Terrain(renderer.scene);
 const ocean = new Ocean(renderer.scene);
 const sky = new SkyAtmosphere(renderer.scene);
 const foliage = new FoliageSystem(renderer.scene, terrain, collisionSystem);
+const grassSystem = new GrassSystem(renderer.scene, terrain);
 
 const weatherSystem = new WeatherSystem(renderer.scene, terrain, particleEngine, audioEngine, cameraController);
 const riftEventSystem = new RiftEventSystem(renderer.scene, terrain, particleEngine, audioEngine);
@@ -80,13 +83,22 @@ const flightHud = new FlightHUD();
 // Plane 1: Positioned on runway threshold (Runway 36 approach) ready for immediate takeoff
 const planeRunway = new Airplane(renderer.scene, terrain, new THREE.Vector3(-110, 4.22, 45), audioEngine, particleEngine, collisionSystem);
 planeRunway.group.rotation.y = Math.PI; // Heading North down the runway
+planeRunway.cameraController = cameraController;
 
 // Plane 2: Parked on the apron in front of the hangar
 const planeApron = new Airplane(renderer.scene, terrain, new THREE.Vector3(-72, 4.22, -30), audioEngine, particleEngine, collisionSystem);
 planeApron.group.rotation.y = -Math.PI / 2;
+planeApron.cameraController = cameraController;
 
 const airplanes = [planeRunway, planeApron];
 let currentActivePlane = null;
+
+// Autonomous High-Altitude Aerial Threat: Rogue Drone Interceptors
+const rogueDrones = [
+  new RogueDrone(renderer.scene, terrain, new THREE.Vector3(-130, 115, -70), audioEngine, particleEngine),
+  new RogueDrone(renderer.scene, terrain, new THREE.Vector3(110, 130, 120), audioEngine, particleEngine),
+  new RogueDrone(renderer.scene, terrain, new THREE.Vector3(50, 150, -110), audioEngine, particleEngine)
+];
 
 // 3. Initialize Player
 const player = new Player(renderer.scene, assetManager);
@@ -336,9 +348,21 @@ function animate() {
     plane.update(dt, currentActivePlane === plane ? inputManager : null, combatManager);
   }
 
+  // Update Autonomous Rogue Drone Squadron in Dogfights
+  for (const drone of rogueDrones) {
+    drone.update(dt, currentActivePlane, combatManager);
+  }
+
+  // Update Instanced Wind Grass System
+  grassSystem.update(dt, currentActivePlane ? currentActivePlane.group.position : player.position);
+
   if (currentActivePlane) {
     // Flight Simulation Mode Active
-    flightHud.update(currentActivePlane);
+    // Air-to-Air Guided Missile Launch (RMB or KeyX)
+    if (inputManager.wasMouseJustPressed(2) || inputManager.wasKeyJustPressed('KeyX')) {
+      currentActivePlane.fireMissile(currentActivePlane.lockedTarget);
+    }
+    flightHud.update(currentActivePlane, cameraController.camera, rogueDrones);
     cameraController.updateFlightCamera(dt, currentActivePlane, (x, z) => terrain.getHeightAt(x, z));
   } else {
     // Standard Ground / Foot Mode Active
@@ -719,8 +743,22 @@ function animate() {
   // Clear per-frame input edge triggers
   inputManager.clearFrame();
 
-  // Render Scene
-  renderer.render();
+  // Dynamic HDR Post-Processing Adjustments
+  if (currentActivePlane) {
+    const isAB = currentActivePlane.isAfterburner;
+    const isSuper = currentActivePlane.isSupersonic;
+    const targetChroma = isSuper ? 0.0038 : (isAB ? 0.0022 : 0.0006);
+    renderer.setChromaticAberration(targetChroma);
+
+    const gEffect = Math.max(0, (currentActivePlane.gForce - 1.0) * 0.12);
+    renderer.setVignetteDarkness(1.12 + gEffect);
+  } else {
+    renderer.setChromaticAberration(combatManager.hitStopTimer > 0 ? 0.0035 : 0.0006);
+    renderer.setVignetteDarkness(player.health < 30 ? 1.45 : 1.12);
+  }
+
+  // Render Scene via EffectComposer
+  renderer.render(dt);
 }
 
 // Launch Engine
