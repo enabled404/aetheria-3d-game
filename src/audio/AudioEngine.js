@@ -907,5 +907,141 @@ export class AudioEngine {
       } catch (e) {}
     }
   }
+
+  playCelestialSong() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+
+    // Deep ethereal resonant whale harmonic drone
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(82, now);
+    osc1.frequency.exponentialRampToValueAtTime(110, now + 2.5);
+    osc1.frequency.exponentialRampToValueAtTime(73, now + 5.0);
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(246, now);
+    osc2.frequency.exponentialRampToValueAtTime(329.6, now + 2.0);
+    osc2.frequency.exponentialRampToValueAtTime(220, now + 5.0);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(450, now);
+    filter.frequency.exponentialRampToValueAtTime(800, now + 2.0);
+    filter.frequency.exponentialRampToValueAtTime(350, now + 5.0);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 1.2);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 5.0);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.musicGain);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 5.0);
+    osc2.stop(now + 5.0);
+  }
+
+  playAuroraChimes() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+    // Crystalline bell arpeggio (pentatonic high chimes)
+    const freqs = [880, 1046.5, 1318.5, 1567.98, 2093];
+    const f = freqs[Math.floor(Math.random() * freqs.length)];
+
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(f, now);
+
+    g.gain.setValueAtTime(0.001, now);
+    g.gain.exponentialRampToValueAtTime(0.12, now + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
+
+    osc.connect(g);
+    g.connect(this.musicGain);
+    osc.start(now);
+    osc.stop(now + 2.4);
+  }
+
+  playOceanSurf() {
+    if (!this.isInitialized) return;
+    const now = this.ctx.currentTime;
+    const duration = 4.2;
+
+    const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1);
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(220, now);
+    filter.frequency.exponentialRampToValueAtTime(450, now + 1.8);
+    filter.frequency.exponentialRampToValueAtTime(160, now + duration);
+    filter.Q.value = 1.2;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + 1.6);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.musicGain);
+
+    noise.start(now);
+    noise.stop(now + duration);
+  }
+
+  updateAmbience(dt, playerPosition, sky = null, sanctuary = null, leviathan = null) {
+    if (!this.isInitialized || !playerPosition) return;
+
+    if (!this.ambienceTimers) {
+      this.ambienceTimers = { surf: 3.0, aurora: 5.0, whale: 8.0 };
+    }
+
+    // 1. Ocean Surf (when near sea level and towards coast)
+    this.ambienceTimers.surf -= dt;
+    const distFromCenter = Math.hypot(playerPosition.x, playerPosition.z);
+    if (this.ambienceTimers.surf <= 0) {
+      this.ambienceTimers.surf = 4.5 + Math.random() * 2.5;
+      if (playerPosition.y < 22.0 && distFromCenter > 70.0) {
+        this.playOceanSurf();
+      }
+    }
+
+    // 2. Aurora Chimes at Night
+    if (sky && (sky.timeOfDay > 0.45 && sky.timeOfDay < 0.95)) {
+      this.ambienceTimers.aurora -= dt;
+      if (this.ambienceTimers.aurora <= 0) {
+        this.ambienceTimers.aurora = 6.0 + Math.random() * 6.0;
+        this.playAuroraChimes();
+      }
+    }
+
+    // 3. Celestial Leviathan Whale Song
+    if (leviathan) {
+      this.ambienceTimers.whale -= dt;
+      if (this.ambienceTimers.whale <= 0) {
+        this.ambienceTimers.whale = 10.0 + Math.random() * 8.0;
+        const d = playerPosition.distanceTo(leviathan.group.position);
+        if (d < 160.0) {
+          this.playCelestialSong();
+        }
+      }
+    }
+  }
 }
 

@@ -47,6 +47,8 @@ import { Airplane } from './entities/Airplane.js';
 import { FlightHUD } from './ui/FlightHUD.js';
 import { GrassSystem } from './world/GrassSystem.js';
 import { RogueDrone } from './entities/RogueDrone.js';
+import { FloatingSanctuary } from './world/FloatingSanctuary.js';
+import { CelestialLeviathan } from './entities/CelestialLeviathan.js';
 
 // 1. Initialize Core Engine & Systems
 const canvas = document.getElementById('game-canvas');
@@ -71,6 +73,10 @@ const sky = new SkyAtmosphere(renderer.scene);
 const foliage = new FoliageSystem(renderer.scene, terrain, collisionSystem);
 const grassSystem = new GrassSystem(renderer.scene, terrain);
 
+// High-Altitude Sky Island & Celestial Leviathan
+const floatingSanctuary = new FloatingSanctuary(renderer.scene, collisionSystem);
+const celestialLeviathan = new CelestialLeviathan(renderer.scene, particleEngine, audioEngine);
+
 const weatherSystem = new WeatherSystem(renderer.scene, terrain, particleEngine, audioEngine, cameraController);
 const riftEventSystem = new RiftEventSystem(renderer.scene, terrain, particleEngine, audioEngine);
 const worldHazards = new WorldHazards(renderer.scene, terrain, particleEngine, audioEngine, cameraController);
@@ -84,14 +90,34 @@ const flightHud = new FlightHUD();
 const planeRunway = new Airplane(renderer.scene, terrain, new THREE.Vector3(-110, 4.22, 45), audioEngine, particleEngine, collisionSystem);
 planeRunway.group.rotation.y = Math.PI; // Heading North down the runway
 planeRunway.cameraController = cameraController;
+planeRunway.sanctuary = floatingSanctuary;
 
 // Plane 2: Parked on the apron in front of the hangar
 const planeApron = new Airplane(renderer.scene, terrain, new THREE.Vector3(-72, 4.22, -30), audioEngine, particleEngine, collisionSystem);
 planeApron.group.rotation.y = -Math.PI / 2;
 planeApron.cameraController = cameraController;
+planeApron.sanctuary = floatingSanctuary;
 
 const airplanes = [planeRunway, planeApron];
 let currentActivePlane = null;
+
+// Effective Multi-Layer Terrain Elevation (blends Floating Sanctuary when above 150m)
+const effectiveTerrain = {
+  getHeightAt: (x, z) => {
+    const checkY = currentActivePlane ? currentActivePlane.group.position.y : player.position.y;
+    if (checkY > 150.0 && floatingSanctuary.isPointOnSanctuary(x, z)) {
+      return 195.0;
+    }
+    return terrain.getHeightAt(x, z);
+  },
+  getNormalAt: (x, z) => {
+    const checkY = currentActivePlane ? currentActivePlane.group.position.y : player.position.y;
+    if (checkY > 150.0 && floatingSanctuary.isPointOnSanctuary(x, z)) {
+      return new THREE.Vector3(0, 1, 0);
+    }
+    return terrain.getNormalAt(x, z);
+  }
+};
 
 // Autonomous High-Altitude Aerial Threat: Rogue Drone Interceptors
 const rogueDrones = [
@@ -253,7 +279,9 @@ function animate() {
   // Contextual Interaction Check
   let promptText = null;
   if (!currentActivePlane && nearestPlane && nearestPlaneDist < 6.5) {
-    promptText = '[F] Board Aeroplane';
+    promptText = '[F] Board Aeroplane  |  [L] Livery';
+  } else if (!currentActivePlane && airport.terminalPosition && player.position.distanceTo(airport.terminalPosition) < 4.5) {
+    promptText = '[L] Avionics & Livery Terminal';
   }
 
   if (!promptText) {
@@ -276,6 +304,16 @@ function animate() {
     }
   }
   hud.showPrompt(promptText);
+
+  // Aircraft Livery Customization (Key L)
+  if (inputManager.wasKeyJustPressed('KeyL')) {
+    const targetPlane = currentActivePlane || (nearestPlaneDist < 12.0 ? nearestPlane : planeApron);
+    if (targetPlane) {
+      const liveryName = targetPlane.cycleNextLivery();
+      audioEngine.playToastSound();
+      hud.showToast(`🎨 Aircraft Livery: ${liveryName}`);
+    }
+  }
 
   // Aircraft Boarding / Disembarking (Key F)
   if (inputManager.wasKeyJustPressed('KeyF')) {
@@ -363,7 +401,7 @@ function animate() {
       currentActivePlane.fireMissile(currentActivePlane.lockedTarget);
     }
     flightHud.update(currentActivePlane, cameraController.camera, rogueDrones);
-    cameraController.updateFlightCamera(dt, currentActivePlane, (x, z) => terrain.getHeightAt(x, z));
+    cameraController.updateFlightCamera(dt, currentActivePlane, (x, z) => effectiveTerrain.getHeightAt(x, z));
   } else {
     // Standard Ground / Foot Mode Active
     flightHud.hide();
@@ -491,7 +529,7 @@ function animate() {
       dt,
       inputManager,
       cameraController,
-      terrain,
+      effectiveTerrain,
       particleEngine,
       (slamPos) => {
         combatManager.spawnBossShockwave(slamPos);
@@ -513,11 +551,14 @@ function animate() {
       audioEngine
     );
 
-    cameraController.update(dt, player.position, (x, z) => terrain.getHeightAt(x, z));
+    cameraController.update(dt, player.position, (x, z) => effectiveTerrain.getHeightAt(x, z));
   }
 
-  ocean.update(dt);
+  ocean.update(dt, sky.sunMesh.position, cameraController.camera.position);
   sky.update(dt, player.position);
+  floatingSanctuary.update(dt);
+  celestialLeviathan.update(dt, currentActivePlane, hud);
+  audioEngine.updateAmbience(dt, player.position, sky, floatingSanctuary, celestialLeviathan);
 
   // Music mode
   if (!bossTitan.isAwake || bossTitan.isDead) {

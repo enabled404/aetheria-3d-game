@@ -14,12 +14,15 @@ export class Airport {
     this.animatedLights = [];
     this.beaconGroup = null;
     this.windsockMesh = null;
+    this.holoPlane = null;
+    this.terminalPosition = null;
 
     this.buildRunway();
     this.buildMarkings();
     this.buildLighting();
     this.buildApronAndTaxiways();
     this.buildHangar();
+    this.buildPaintTerminal();
     this.buildControlTower();
     this.buildWindsock();
     this.buildAirfieldSignage();
@@ -496,6 +499,60 @@ export class Airport {
     this.group.add(signGroup);
   }
 
+  buildPaintTerminal() {
+    const termPos = new THREE.Vector3(this.center.x + 44, this.center.y, this.center.z - 16);
+    this.terminalPosition = termPos.clone();
+
+    const group = new THREE.Group();
+    group.position.copy(termPos);
+
+    // Maintenance Tech Pedestal / Workbench Desk
+    const tableGeom = new THREE.BoxGeometry(3.2, 1.1, 1.6);
+    const tableMat = new THREE.MeshStandardMaterial({ color: 0x242830, metalness: 0.8, roughness: 0.3 });
+    const table = new THREE.Mesh(tableGeom, tableMat);
+    table.position.y = 0.55;
+    table.castShadow = true;
+    table.receiveShadow = true;
+    group.add(table);
+
+    // Glowing Neon Hologram Base Plate
+    const discGeom = new THREE.CylinderGeometry(0.8, 0.8, 0.08, 16);
+    const discMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+    const disc = new THREE.Mesh(discGeom, discMat);
+    disc.position.set(0, 1.14, 0);
+    group.add(disc);
+
+    // Mini Hologram Plane Silhouette rotating slowly
+    const miniPlaneGroup = new THREE.Group();
+    miniPlaneGroup.position.set(0, 1.8, 0);
+    const mBody = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.1, 8), new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true }));
+    mBody.rotateX(-Math.PI / 2);
+    miniPlaneGroup.add(mBody);
+    const mWing = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.04, 0.3), new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true }));
+    miniPlaneGroup.add(mWing);
+    group.add(miniPlaneGroup);
+    this.holoPlane = miniPlaneGroup;
+
+    // Terminal Screen Display
+    const screenGeom = new THREE.BoxGeometry(1.2, 0.8, 0.06);
+    const screenMat = new THREE.MeshBasicMaterial({ color: 0x00d4ff });
+    const screen = new THREE.Mesh(screenGeom, screenMat);
+    screen.position.set(0, 1.6, -0.6);
+    screen.rotation.x = 0.2;
+    group.add(screen);
+
+    // Glowing Local Terminal Light
+    const pointLight = new THREE.PointLight(0x00e5ff, 1.8, 14);
+    pointLight.position.set(0, 2.2, 0);
+    group.add(pointLight);
+
+    if (this.collisionSystem) {
+      this.collisionSystem.addCollider(termPos.x, termPos.z, 2.0, 3.0, 'structure');
+    }
+
+    this.group.add(group);
+  }
+
   update(dt) {
     // Rotate aerodrome beacon
     if (this.beaconGroup) {
@@ -507,6 +564,12 @@ export class Airport {
       const time = Date.now() * 0.002;
       this.windsockMesh.rotation.z = Math.sin(time) * 0.15;
       this.windsockMesh.rotation.y = Math.cos(time * 0.5) * 0.25;
+    }
+
+    // Holographic avionics plane animation
+    if (this.holoPlane) {
+      this.holoPlane.rotation.y += dt * 1.4;
+      this.holoPlane.position.y = 1.8 + Math.sin(Date.now() * 0.003) * 0.08;
     }
   }
 }

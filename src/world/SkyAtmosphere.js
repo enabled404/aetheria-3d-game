@@ -56,7 +56,13 @@ export class SkyAtmosphere {
     // 6. Starfield
     this.createStarfield();
 
-    // 7. Puffy Volumetric Cloud Clusters
+    // 7. Aurora Borealis Ribbon Curtain
+    this.createAurora();
+
+    // 8. Cosmic Shooting Stars
+    this.createShootingStars();
+
+    // 9. Puffy Volumetric Cloud Clusters
     this.createPuffyClouds();
 
     // Initialize background color
@@ -125,6 +131,100 @@ export class SkyAtmosphere {
     });
     this.starPoints = new THREE.Points(geom, this.starMaterial);
     this.scene.add(this.starPoints);
+  }
+
+  createAurora() {
+    // High-altitude northern sky aurora ribbon
+    const width = 420;
+    const height = 90;
+    const geom = new THREE.PlaneGeometry(width, height, 48, 16);
+
+    const vShader = `
+      uniform float uTime;
+      varying vec2 vUv;
+      varying vec3 vWorldPos;
+
+      void main() {
+        vUv = uv;
+        vec3 pos = position;
+
+        // Wave curtain oscillation
+        float fold = sin(pos.x * 0.024 + uTime * 0.42) * 22.0
+                   + cos(pos.x * 0.05 + uTime * 0.65) * 9.0;
+        pos.z += fold;
+        pos.y += sin(pos.x * 0.018 + uTime * 0.28) * 6.0;
+
+        vec4 wPos = modelMatrix * vec4(pos, 1.0);
+        vWorldPos = wPos.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wPos;
+      }
+    `;
+
+    const fShader = `
+      uniform float uTime;
+      uniform float uOpacity;
+      varying vec2 vUv;
+      varying vec3 vWorldPos;
+
+      void main() {
+        // Vertical fade at top and bottom
+        float vFade = sin(vUv.y * 3.14159);
+        vFade = pow(vFade, 0.85);
+
+        // Shimmering vertical light curtains
+        float rays = 0.5 + 0.5 * sin(vUv.x * 75.0 + sin(vWorldPos.y * 0.08 + uTime * 1.6) * 3.5);
+        rays = mix(0.7, 1.35, rays);
+
+        // Bioluminescent emerald to luminous cosmic violet
+        vec3 emerald = vec3(0.08, 0.95, 0.65);
+        vec3 violet = vec3(0.65, 0.20, 0.98);
+        vec3 auroraColor = mix(emerald, violet, vUv.y);
+
+        float alpha = vFade * uOpacity * 0.85;
+        gl_FragColor = vec4(auroraColor * rays, alpha);
+      }
+    `;
+
+    this.auroraUniforms = {
+      uTime: { value: 0.0 },
+      uOpacity: { value: 0.0 }
+    };
+
+    this.auroraMat = new THREE.ShaderMaterial({
+      vertexShader: vShader,
+      fragmentShader: fShader,
+      uniforms: this.auroraUniforms,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending
+    });
+
+    this.auroraMesh = new THREE.Mesh(geom, this.auroraMat);
+    this.auroraMesh.position.set(0, 180, -280);
+    this.scene.add(this.auroraMesh);
+  }
+
+  createShootingStars() {
+    this.shootingStars = [];
+    const trailGeom = new THREE.CylinderGeometry(0.12, 0.0, 16.0, 6);
+    trailGeom.rotateX(Math.PI / 2);
+    const starMat = new THREE.MeshBasicMaterial({
+      color: 0xffeeaa,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending
+    });
+
+    for (let i = 0; i < 4; i++) {
+      const star = new THREE.Mesh(trailGeom, starMat.clone());
+      star.visible = false;
+      star.timer = 2.0 + Math.random() * 8.0;
+      star.duration = 0.0;
+      star.vel = new THREE.Vector3();
+      this.scene.add(star);
+      this.shootingStars.push(star);
+    }
   }
 
   createPuffyClouds() {
@@ -277,6 +377,50 @@ export class SkyAtmosphere {
       this.ambientLight.intensity = THREE.MathUtils.clamp(0.68 * nightGlow, 0.45, 1.25);
 
       this.starMaterial.opacity = Math.min(0.95, nightFactor);
+    }
+
+    // Update Aurora Borealis
+    if (this.auroraUniforms) {
+      this.auroraUniforms.uTime.value += dt;
+      const targetAuroraOpacity = sunElevation < -0.05 ? Math.min(0.92, (-sunElevation - 0.05) / 0.35) : 0.0;
+      this.auroraUniforms.uOpacity.value = THREE.MathUtils.lerp(this.auroraUniforms.uOpacity.value, targetAuroraOpacity, dt * 2.5);
+      if (this.auroraMesh) {
+        this.auroraMesh.position.x = playerPosition.x;
+        this.auroraMesh.position.z = playerPosition.z - 280;
+      }
+    }
+
+    // Update Cosmic Shooting Stars during night
+    if (this.shootingStars && sunElevation < -0.1) {
+      for (const star of this.shootingStars) {
+        star.timer -= dt;
+        if (star.timer <= 0 && !star.visible) {
+          star.visible = true;
+          star.duration = 0.6 + Math.random() * 0.4;
+          const startX = playerPosition.x + (Math.random() - 0.5) * 320;
+          const startY = 190 + Math.random() * 80;
+          const startZ = playerPosition.z + (Math.random() - 0.5) * 320;
+          star.position.set(startX, startY, startZ);
+
+          const speed = 260 + Math.random() * 120;
+          const angle = Math.random() * Math.PI * 2;
+          star.vel.set(Math.cos(angle) * speed, -speed * 0.45, Math.sin(angle) * speed);
+          star.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), star.vel.clone().normalize());
+          star.material.opacity = 0.95;
+        } else if (star.visible) {
+          star.position.addScaledVector(star.vel, dt);
+          star.duration -= dt;
+          star.material.opacity = Math.max(0, star.duration / 0.8);
+          if (star.duration <= 0) {
+            star.visible = false;
+            star.timer = 4.0 + Math.random() * 12.0;
+          }
+        }
+      }
+    } else if (this.shootingStars) {
+      for (const star of this.shootingStars) {
+        star.visible = false;
+      }
     }
 
     // Always update scene.background so sky is never a void

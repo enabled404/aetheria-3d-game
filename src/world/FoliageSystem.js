@@ -13,6 +13,9 @@ export class FoliageSystem {
     this.waystones = [];
 
     this.spawnFoliage();
+    this.spawnSakuraGrove();
+    this.spawnCoastalPalms();
+    this.spawnBioluminescentShrooms();
     this.spawnWaystoneLanterns();
   }
 
@@ -209,6 +212,151 @@ export class FoliageSystem {
     this.crystalMesh.count = crystalIdx;
     this.crystalMesh.instanceMatrix.needsUpdate = true;
     this.scene.add(this.crystalMesh);
+  }
+
+  spawnSakuraGrove() {
+    // Eastern Plateau Cherry Blossom (Sakura) Grove
+    const trunkGeom = new THREE.CylinderGeometry(0.35, 0.55, 4.5, 7);
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3b2416, roughness: 0.9 });
+    const crownGeom = new THREE.DodecahedronGeometry(3.2, 1);
+    const sakuraMat = new THREE.MeshStandardMaterial({
+      color: 0xffa0be,
+      roughness: 0.6,
+      emissive: 0xff7799,
+      emissiveIntensity: 0.25
+    });
+
+    const sakuraPositions = [
+      { x: 55, z: -15 }, { x: 62, z: -22 }, { x: 48, z: -28 }, { x: 70, z: -18 },
+      { x: 58, z: -8 }, { x: 68, z: -30 }, { x: 75, z: -22 }, { x: 50, z: -18 }
+    ];
+
+    for (const pos of sakuraPositions) {
+      const y = this.terrain.getHeightAt(pos.x, pos.z);
+      const group = new THREE.Group();
+      group.position.set(pos.x, y, pos.z);
+
+      const trunk = new THREE.Mesh(trunkGeom, trunkMat);
+      trunk.position.y = 2.25;
+      trunk.rotation.z = 0.08;
+      trunk.castShadow = true;
+      group.add(trunk);
+
+      const crown = new THREE.Mesh(crownGeom, sakuraMat);
+      crown.position.set(0.3, 4.6, 0);
+      crown.scale.set(1.1, 0.9, 1.1);
+      crown.castShadow = true;
+      group.add(crown);
+
+      this.scene.add(group);
+
+      if (this.collisionSystem) {
+        this.collisionSystem.addCollider(pos.x, pos.z, 0.6, 5.0, 'tree');
+      }
+    }
+  }
+
+  spawnCoastalPalms() {
+    // Coastal Palm Trees leaning towards the ocean along beach perimeters
+    const trunkGeom = new THREE.CylinderGeometry(0.24, 0.42, 6.0, 7);
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6e5238, roughness: 0.85 });
+    const frondGeom = new THREE.BoxGeometry(0.5, 0.08, 4.2);
+    const frondMat = new THREE.MeshStandardMaterial({ color: 0x228833, roughness: 0.7, side: THREE.DoubleSide });
+
+    const palmLocations = [
+      { x: -140, z: 20, rotZ: 0.22 }, { x: -135, z: -70, rotZ: -0.2 }, { x: -90, z: 120, rotZ: 0.25 },
+      { x: 110, z: 85, rotZ: -0.22 }, { x: 125, z: -60, rotZ: -0.25 }, { x: -40, z: -140, rotZ: 0.18 },
+      { x: 60, z: 130, rotZ: -0.2 }, { x: -125, z: 80, rotZ: 0.24 }
+    ];
+
+    for (const loc of palmLocations) {
+      const y = this.terrain.getHeightAt(loc.x, loc.z);
+      if (y > 0.8 && y < 4.5) {
+        const group = new THREE.Group();
+        group.position.set(loc.x, y, loc.z);
+
+        const trunk = new THREE.Mesh(trunkGeom, trunkMat);
+        trunk.position.y = 2.9;
+        trunk.rotation.z = loc.rotZ;
+        trunk.castShadow = true;
+        group.add(trunk);
+
+        // Palm Crown Fronds
+        const topX = -Math.sin(loc.rotZ) * 5.8;
+        const topY = Math.cos(loc.rotZ) * 5.8;
+        for (let f = 0; f < 6; f++) {
+          const ang = (f / 6) * Math.PI * 2;
+          const frond = new THREE.Mesh(frondGeom, frondMat);
+          frond.position.set(topX + Math.cos(ang) * 1.8, topY - 0.2, Math.sin(ang) * 1.8);
+          frond.rotation.y = ang;
+          frond.rotation.x = 0.35;
+          group.add(frond);
+        }
+
+        this.scene.add(group);
+        if (this.collisionSystem) {
+          this.collisionSystem.addCollider(loc.x, loc.z, 0.45, 6.0, 'tree');
+        }
+      }
+    }
+  }
+
+  spawnBioluminescentShrooms() {
+    // Forest clearings with glowing mushrooms emitting teal and violet light
+    const capGeom = new THREE.SphereGeometry(0.55, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+    const stemGeom = new THREE.CylinderGeometry(0.12, 0.16, 0.8, 6);
+    const shroomMatTeal = new THREE.MeshStandardMaterial({
+      color: 0x00ffcc,
+      emissive: 0x00e5bb,
+      emissiveIntensity: 1.6,
+      roughness: 0.3
+    });
+    const shroomMatPurple = new THREE.MeshStandardMaterial({
+      color: 0xcc44ff,
+      emissive: 0xaa22ff,
+      emissiveIntensity: 1.6,
+      roughness: 0.3
+    });
+
+    const shroomPatches = [
+      { x: -20, z: 35, color: 'teal' },
+      { x: 30, z: -40, color: 'purple' },
+      { x: -45, z: 80, color: 'teal' },
+      { x: 15, z: 75, color: 'purple' }
+    ];
+
+    for (const patch of shroomPatches) {
+      const baseY = this.terrain.getHeightAt(patch.x, patch.z);
+      const isTeal = patch.color === 'teal';
+      const mat = isTeal ? shroomMatTeal : shroomMatPurple;
+      const lightColor = isTeal ? 0x00ffcc : 0xcc44ff;
+
+      for (let s = 0; s < 5; s++) {
+        const sx = patch.x + (Math.random() - 0.5) * 4.5;
+        const sz = patch.z + (Math.random() - 0.5) * 4.5;
+        const sy = this.terrain.getHeightAt(sx, sz);
+
+        const group = new THREE.Group();
+        group.position.set(sx, sy, sz);
+        const scale = 0.6 + Math.random() * 0.7;
+        group.scale.set(scale, scale, scale);
+
+        const stem = new THREE.Mesh(stemGeom, new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.8 }));
+        stem.position.y = 0.4;
+        group.add(stem);
+
+        const cap = new THREE.Mesh(capGeom, mat);
+        cap.position.y = 0.8;
+        group.add(cap);
+
+        this.scene.add(group);
+      }
+
+      // Atmospheric glowing point light in patch
+      const patchLight = new THREE.PointLight(lightColor, 1.8, 14, 1.5);
+      patchLight.position.set(patch.x, baseY + 1.2, patch.z);
+      this.scene.add(patchLight);
+    }
   }
 
   spawnWaystoneLanterns() {

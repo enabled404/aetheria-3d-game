@@ -1,5 +1,48 @@
 import * as THREE from 'three';
 
+export const LIVERIES = {
+  vanguard: {
+    name: 'Vanguard Stealth',
+    bodyColor: 0x141b24,
+    noseColor: 0x00e5ff,
+    wingColor: 0x1c2738,
+    accentColor: 0x00e5ff,
+    controlColor: 0x0e131a,
+    metalness: 0.8,
+    roughness: 0.25
+  },
+  solar: {
+    name: 'Solar Phoenix',
+    bodyColor: 0x8b2005,
+    noseColor: 0xffaa00,
+    wingColor: 0xc43d0e,
+    accentColor: 0xffcc00,
+    controlColor: 0x4a1002,
+    metalness: 0.6,
+    roughness: 0.3
+  },
+  arctic: {
+    name: 'Arctic Ghost',
+    bodyColor: 0xd8e4ed,
+    noseColor: 0x66ccff,
+    wingColor: 0xbacdd9,
+    accentColor: 0x88eeff,
+    controlColor: 0x607d8b,
+    metalness: 0.5,
+    roughness: 0.35
+  },
+  cyberpunk: {
+    name: 'Cyberpunk Neon',
+    bodyColor: 0x180b2a,
+    noseColor: 0xff007f,
+    wingColor: 0x2e1150,
+    accentColor: 0x00f5d4,
+    controlColor: 0x0a0414,
+    metalness: 0.85,
+    roughness: 0.2
+  }
+};
+
 export class Airplane {
   constructor(scene, terrain, position = new THREE.Vector3(-75, 4.22, -30), audioEngine = null, particleEngine = null, collisionSystem = null) {
     this.scene = scene;
@@ -7,9 +50,14 @@ export class Airplane {
     this.audioEngine = audioEngine;
     this.particleEngine = particleEngine;
     this.collisionSystem = collisionSystem;
+    this.sanctuary = null;
 
     this.group = new THREE.Group();
     this.group.position.copy(position);
+
+    // Livery state
+    this.currentLivery = 'vanguard';
+    this.currentLiveryName = 'Vanguard Stealth';
 
     // Physics state
     this.velocity = new THREE.Vector3();
@@ -120,24 +168,24 @@ export class Airplane {
     // Main fuselage body (tapered rounded cylinder)
     const bodyGeom = new THREE.CylinderGeometry(0.85, 0.45, 9.2, 14);
     bodyGeom.rotateX(Math.PI / 2);
-    const bodyMat = new THREE.MeshStandardMaterial({
+    this.bodyMat = new THREE.MeshStandardMaterial({
       color: 0x1a2436,
       metalness: 0.7,
       roughness: 0.35
     });
-    const bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
-    bodyMesh.castShadow = true;
-    bodyMesh.receiveShadow = true;
-    fuselageGroup.add(bodyMesh);
+    this.bodyMesh = new THREE.Mesh(bodyGeom, this.bodyMat);
+    this.bodyMesh.castShadow = true;
+    this.bodyMesh.receiveShadow = true;
+    fuselageGroup.add(this.bodyMesh);
 
     // Streamlined Nose Cone
     const noseGeom = new THREE.ConeGeometry(0.85, 2.2, 14);
     noseGeom.rotateX(-Math.PI / 2);
-    const noseMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, metalness: 0.8, roughness: 0.2 });
-    const noseMesh = new THREE.Mesh(noseGeom, noseMat);
-    noseMesh.position.set(0, 0, 5.7);
-    noseMesh.castShadow = true;
-    fuselageGroup.add(noseMesh);
+    this.noseMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, metalness: 0.8, roughness: 0.2 });
+    this.noseMesh = new THREE.Mesh(noseGeom, this.noseMat);
+    this.noseMesh.position.set(0, 0, 5.7);
+    this.noseMesh.castShadow = true;
+    fuselageGroup.add(this.noseMesh);
 
     // Tinted Cockpit Glass Canopy
     const canopyGeom = new THREE.SphereGeometry(0.9, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -188,63 +236,63 @@ export class Airplane {
     wingGeom.rotateX(Math.PI / 2);
     wingGeom.rotateZ(Math.PI);
 
-    const wingMat = new THREE.MeshStandardMaterial({
+    this.wingMat = new THREE.MeshStandardMaterial({
       color: 0x223048,
       metalness: 0.6,
       roughness: 0.4
     });
-    const mainWing = new THREE.Mesh(wingGeom, wingMat);
-    mainWing.position.set(0, 0.15, 0.6);
-    mainWing.castShadow = true;
-    fuselageGroup.add(mainWing);
+    this.mainWing = new THREE.Mesh(wingGeom, this.wingMat);
+    this.mainWing.position.set(0, 0.15, 0.6);
+    this.mainWing.castShadow = true;
+    fuselageGroup.add(this.mainWing);
 
     // Wing Dihedral Winglets
     const wingletGeom = new THREE.BoxGeometry(0.12, 0.9, 0.8);
-    const wingletMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, metalness: 0.7 });
+    this.wingletMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, metalness: 0.7 });
 
-    const leftWinglet = new THREE.Mesh(wingletGeom, wingletMat);
-    leftWinglet.position.set(-wingSpan / 2 + 0.1, 0.5, 0.1);
-    leftWinglet.rotation.z = -0.25;
-    fuselageGroup.add(leftWinglet);
+    this.leftWinglet = new THREE.Mesh(wingletGeom, this.wingletMat);
+    this.leftWinglet.position.set(-wingSpan / 2 + 0.1, 0.5, 0.1);
+    this.leftWinglet.rotation.z = -0.25;
+    fuselageGroup.add(this.leftWinglet);
 
-    const rightWinglet = new THREE.Mesh(wingletGeom, wingletMat);
-    rightWinglet.position.set(wingSpan / 2 - 0.1, 0.5, 0.1);
-    rightWinglet.rotation.z = 0.25;
-    fuselageGroup.add(rightWinglet);
+    this.rightWinglet = new THREE.Mesh(wingletGeom, this.wingletMat);
+    this.rightWinglet.position.set(wingSpan / 2 - 0.1, 0.5, 0.1);
+    this.rightWinglet.rotation.z = 0.25;
+    fuselageGroup.add(this.rightWinglet);
 
     // 3. Moveable Flight Control Surfaces (Ailerons, Elevators, Rudder)
     const aileronGeom = new THREE.BoxGeometry(2.4, 0.08, 0.45);
-    const controlMat = new THREE.MeshStandardMaterial({ color: 0x121b2b, metalness: 0.7 });
+    this.controlMat = new THREE.MeshStandardMaterial({ color: 0x121b2b, metalness: 0.7 });
 
-    this.leftAileron = new THREE.Mesh(aileronGeom, controlMat);
+    this.leftAileron = new THREE.Mesh(aileronGeom, this.controlMat);
     this.leftAileron.position.set(-4.5, 0.15, -0.6);
     fuselageGroup.add(this.leftAileron);
 
-    this.rightAileron = new THREE.Mesh(aileronGeom, controlMat);
+    this.rightAileron = new THREE.Mesh(aileronGeom, this.controlMat);
     this.rightAileron.position.set(4.5, 0.15, -0.6);
     fuselageGroup.add(this.rightAileron);
 
     // Tail Section (Empennage)
     // Vertical Stabilizer & Rudder
     const finGeom = new THREE.BoxGeometry(0.15, 2.2, 1.8);
-    const fin = new THREE.Mesh(finGeom, wingMat);
-    fin.position.set(0, 1.25, -3.8);
-    fin.rotation.x = -0.3;
-    fuselageGroup.add(fin);
+    this.fin = new THREE.Mesh(finGeom, this.wingMat);
+    this.fin.position.set(0, 1.25, -3.8);
+    this.fin.rotation.x = -0.3;
+    fuselageGroup.add(this.fin);
 
     const rudderGeom = new THREE.BoxGeometry(0.12, 1.8, 0.55);
-    this.rudder = new THREE.Mesh(rudderGeom, controlMat);
+    this.rudder = new THREE.Mesh(rudderGeom, this.controlMat);
     this.rudder.position.set(0, 1.25, -4.6);
     fuselageGroup.add(this.rudder);
 
     // Horizontal Stabilizers & Elevators
     const hStabGeom = new THREE.BoxGeometry(4.6, 0.12, 1.2);
-    const hStab = new THREE.Mesh(hStabGeom, wingMat);
-    hStab.position.set(0, 0.4, -4.2);
-    fuselageGroup.add(hStab);
+    this.hStab = new THREE.Mesh(hStabGeom, this.wingMat);
+    this.hStab.position.set(0, 0.4, -4.2);
+    fuselageGroup.add(this.hStab);
 
     const elevGeom = new THREE.BoxGeometry(4.4, 0.08, 0.45);
-    this.elevator = new THREE.Mesh(elevGeom, controlMat);
+    this.elevator = new THREE.Mesh(elevGeom, this.controlMat);
     this.elevator.position.set(0, 0.4, -4.9);
     fuselageGroup.add(this.elevator);
 
@@ -269,7 +317,7 @@ export class Airplane {
 
       const spinnerGeom = new THREE.ConeGeometry(0.24, 0.6, 10);
       spinnerGeom.rotateX(-Math.PI / 2);
-      const spinner = new THREE.Mesh(spinnerGeom, noseMat);
+      const spinner = new THREE.Mesh(spinnerGeom, this.noseMat);
       propGroup.add(spinner);
 
       const blade1 = new THREE.Mesh(propBladeGeom, propBladeMat);
@@ -464,14 +512,59 @@ export class Airplane {
     this.group.add(fuselageGroup);
   }
 
+  setLivery(liveryKey) {
+    const livery = LIVERIES[liveryKey];
+    if (!livery) return this.currentLiveryName;
+    this.currentLivery = liveryKey;
+    this.currentLiveryName = livery.name;
+
+    if (this.bodyMat) {
+      this.bodyMat.color.setHex(livery.bodyColor);
+      this.bodyMat.metalness = livery.metalness;
+      this.bodyMat.roughness = livery.roughness;
+    }
+    if (this.noseMat) {
+      this.noseMat.color.setHex(livery.noseColor);
+      this.noseMat.metalness = livery.metalness;
+    }
+    if (this.wingMat) {
+      this.wingMat.color.setHex(livery.wingColor);
+      this.wingMat.metalness = livery.metalness;
+      this.wingMat.roughness = livery.roughness;
+    }
+    if (this.wingletMat) {
+      this.wingletMat.color.setHex(livery.accentColor);
+    }
+    if (this.controlMat) {
+      this.controlMat.color.setHex(livery.controlColor);
+    }
+    return this.currentLiveryName;
+  }
+
+  cycleNextLivery() {
+    const keys = Object.keys(LIVERIES);
+    const currentIndex = keys.indexOf(this.currentLivery || 'vanguard');
+    const nextIndex = (currentIndex + 1) % keys.length;
+    return this.setLivery(keys[nextIndex]);
+  }
+
+  getGroundHeight(x, z) {
+    if (this.sanctuary && (this.group.position.y > 150.0 || (this.isGrounded && this.group.position.y > 180.0))) {
+      const sElev = this.sanctuary.getSurfaceElevation(x, z);
+      if (sElev > 0) return sElev;
+    }
+    return this.terrain ? this.terrain.getHeightAt(x, z) : 0;
+  }
+
   mount(player) {
     this.isPilotInside = true;
     this.pilot = player;
     player.model.group.visible = false;
     this.targetThrottle = 0.25; // idle throttle upon starting engines
     this.setCollidersActive(false);
+
     if (this.audioEngine) {
-      this.audioEngine.startPlaneEngine(this.throttle);
+      this.audioEngine.startPlaneEngine(0.25);
     }
   }
 
@@ -479,7 +572,7 @@ export class Airplane {
     if (!this.pilot) return;
     this.isPilotInside = false;
     const exitPos = this.group.position.clone().add(this.getRightVector().multiplyScalar(3.5));
-    exitPos.y = this.terrain.getHeightAt(exitPos.x, exitPos.z) + 0.2;
+    exitPos.y = this.getGroundHeight(exitPos.x, exitPos.z) + 0.2;
     this.pilot.position.copy(exitPos);
     this.pilot.velocity.set(0, 0, 0);
     this.pilot.model.group.visible = true;
@@ -724,7 +817,7 @@ export class Airplane {
     }
 
     // Ground Effect Cushion: within 1 wingspan (< 12m), induced drag drops & lift rises
-    const groundY = this.terrain.getHeightAt(this.group.position.x, this.group.position.z);
+    const groundY = this.getGroundHeight(this.group.position.x, this.group.position.z);
     const minAltitude = groundY + this.gearHeight;
     const altAboveGround = Math.max(0, this.group.position.y - minAltitude);
     const groundEffect = THREE.MathUtils.clamp(1.0 - (altAboveGround / 12.0), 0.0, 1.0);

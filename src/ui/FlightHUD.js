@@ -190,9 +190,20 @@ export class FlightHUD {
         <span><strong style="color: #00ffff;">Q/E:</strong> Rudder</span>
         <span><strong style="color: #00ffff;">Shift/Ctrl/Wheel:</strong> Throttle</span>
         <span><strong style="color: #00ffff;">Space:</strong> Brakes</span>
+        <span><strong style="color: #ffaa00;">L:</strong> Livery</span>
         <span><strong style="color: #00ffff;">V:</strong> Camera</span>
         <span><strong style="color: #ff4466;">F:</strong> Exit</span>
       </div>
+
+      <!-- High-G Blackout / Redout Vignette -->
+      <div id="flight-g-vignette" style="
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.0;
+        transition: opacity 0.12s ease-out;
+        z-index: 10;
+      "></div>
     `;
 
     const style = document.createElement('style');
@@ -212,6 +223,7 @@ export class FlightHUD {
     this.canvas = document.getElementById('flight-horizon-canvas');
     this.ctx = this.canvas?.getContext('2d');
 
+    this.gVignetteElem = document.getElementById('flight-g-vignette');
     this.hdgValElem = document.getElementById('flight-hdg-val');
     this.speedValElem = document.getElementById('flight-speed-val');
     this.speedBarElem = document.getElementById('flight-speed-bar');
@@ -237,6 +249,9 @@ export class FlightHUD {
 
   hide() {
     this.container.style.display = 'none';
+    if (this.gVignetteElem) {
+      this.gVignetteElem.style.opacity = '0.0';
+    }
   }
 
   update(airplane, camera = null, rogueDrones = []) {
@@ -256,12 +271,28 @@ export class FlightHUD {
       this.speedBarElem.style.background = (airplane.speed < airplane.stallSpeed) ? '#ff2233' : '#00ffff';
     }
 
-    // G-Meter
+    // G-Meter & High-G Blackout / Redout Visuals
+    const g = airplane.gForce !== undefined ? airplane.gForce : 1.0;
     if (this.gValElem) {
-      const g = airplane.gForce !== undefined ? airplane.gForce : 1.0;
       const sign = g >= 0 ? '+' : '';
       this.gValElem.textContent = `${sign}${g.toFixed(1)} G`;
       this.gValElem.style.color = (g > 3.5 || g < -0.5) ? '#ff3344' : (g > 2.5 ? '#ffaa00' : '#00ffaa');
+    }
+
+    if (this.gVignetteElem) {
+      if (g > 3.6) {
+        // High Positive-G Blackout
+        const intensity = Math.min(0.92, (g - 3.6) / 2.8);
+        this.gVignetteElem.style.background = 'radial-gradient(circle at center, transparent 35%, rgba(0, 0, 0, 0.95) 90%)';
+        this.gVignetteElem.style.opacity = intensity.toFixed(3);
+      } else if (g < -0.6) {
+        // High Negative-G Redout
+        const intensity = Math.min(0.85, (-g - 0.6) / 2.2);
+        this.gVignetteElem.style.background = 'radial-gradient(circle at center, rgba(255, 0, 0, 0.15) 30%, rgba(190, 0, 0, 0.88) 90%)';
+        this.gVignetteElem.style.opacity = intensity.toFixed(3);
+      } else {
+        this.gVignetteElem.style.opacity = '0.0';
+      }
     }
 
     // Mach Number
