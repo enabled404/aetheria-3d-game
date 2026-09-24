@@ -40,7 +40,7 @@ export class InputManager {
 
     window.addEventListener('mousedown', (e) => {
       // Prevent pointer lock from hijacking clicks on UI elements
-      const isUiClick = e.target.closest?.('#settings-modal, #dialogue-modal, #crafting-modal, #map-modal, #title-screen, #hud-settings-btn, #dialogue-choices, .recipe-card, .settings-panel, .dialogue-btn, .settings-tab, button, input');
+      const isUiClick = e.target.closest?.('#settings-modal, #dialogue-modal, #crafting-modal, #map-modal, #title-screen, #pause-menu, #hud-settings-btn, #hud-pause-btn, #hud-controls-toggle, #dialogue-choices, .recipe-card, .settings-panel, .dialogue-btn, .settings-tab, button, input');
       if (isUiClick) return;
 
       if (!this.isPointerLocked) {
@@ -81,7 +81,12 @@ export class InputManager {
   }
 
   requestPointerLock() {
-    this.domElement.requestPointerLock?.();
+    try {
+      const p = this.domElement.requestPointerLock?.();
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {});
+      }
+    } catch (e) {}
   }
 
   exitPointerLock() {

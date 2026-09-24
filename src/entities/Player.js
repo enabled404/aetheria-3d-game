@@ -27,6 +27,7 @@ export class Player {
     this.isSwimming = false;
     this.isThrusterActive = false;
     this.isGroundSlamming = false;
+    this.jumpCooldown = 0.0;
 
     // Personal Lumitech Illumination (Player character and immediate ground are always crisp & bright)
     this.beacon = new THREE.PointLight(0x7fe3ff, 2.4, 28, 1.3);
@@ -207,6 +208,11 @@ export class Player {
       }
     }
 
+    // Decrement jump cooldown
+    if (this.jumpCooldown > 0) {
+      this.jumpCooldown -= dt;
+    }
+
     // 4. Gravity, Jumps & Swimming
     this.isSwimming = this.position.y < CONFIG.WORLD.WATER_LEVEL + 0.35;
 
@@ -219,8 +225,12 @@ export class Player {
       this.isThrusterActive = false;
       this.isGroundSlamming = false;
     } else {
-      if (this.position.y <= groundH + 0.15) {
-        // Landed on ground
+      // Step-Down Ground Snap: when already grounded, stick smoothly across slopes & drops up to 0.85m
+      const distAboveGround = this.position.y - groundH;
+      const canSnapToGround = this.isGrounded && this.jumpCooldown <= 0 && !this.isThrusterActive && !this.isGroundSlamming && distAboveGround >= 0 && distAboveGround < 0.85;
+
+      if (distAboveGround <= 0.18 || canSnapToGround) {
+        // Landed / Firmly Grounded on terrain
         if (!this.isGrounded) {
           const fallSpeed = -this.velocity.y;
           if (fallSpeed > 5.5) {
@@ -235,7 +245,8 @@ export class Player {
           onGroundSlam?.(this.position.clone());
         }
 
-        this.position.y = THREE.MathUtils.lerp(this.position.y, groundH, Math.min(1.0, dt * 25.0));
+        // Stick to ground
+        this.position.y = groundH;
         this.velocity.y = 0;
         this.isGrounded = true;
         this.isThrusterActive = false;
@@ -243,6 +254,7 @@ export class Player {
         if (input.wasKeyJustPressed('Space') && this.stamina >= 10) {
           this.velocity.y = CONFIG.PLAYER.JUMP_FORCE;
           this.isGrounded = false;
+          this.jumpCooldown = 0.25;
           this.stamina -= 10;
         }
       } else {
@@ -290,7 +302,7 @@ export class Player {
       }
     }
 
-    // Clamp floor
+    // Clamp floor and smooth step-up
     const updatedGroundH = terrain.getHeightAt(this.position.x, this.position.z);
     if (this.position.y < updatedGroundH) {
       if (this.isGroundSlamming) {
@@ -298,7 +310,7 @@ export class Player {
         onGroundSlam?.(this.position.clone());
       }
       this.position.y = updatedGroundH;
-      this.velocity.y = 0;
+      this.velocity.y = Math.max(0, this.velocity.y);
       this.isGrounded = true;
     }
 

@@ -78,6 +78,7 @@ export class Ocean {
     `;
 
     const fragmentShader = `
+      uniform float uTime;
       uniform vec3 uSunPosition;
       uniform vec3 uCameraPosition;
       uniform vec3 uShallowColor;
@@ -89,6 +90,35 @@ export class Ocean {
       varying vec3 vNormal;
       varying float vWaveHeight;
 
+      float oceanHash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+      }
+
+      float oceanNoise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(oceanHash(i), oceanHash(i + vec2(1.0, 0.0)), f.x),
+                   mix(oceanHash(i + vec2(0.0, 1.0)), oceanHash(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+
+      // Procedural foam cellular web pattern
+      float foamPattern(vec2 p, float time) {
+        vec2 uv1 = p * 1.6 + vec2(time * 0.15, time * 0.1);
+        vec2 uv2 = p * 2.8 - vec2(time * 0.12, -time * 0.18);
+        float n1 = oceanNoise(uv1);
+        float n2 = oceanNoise(uv2);
+        return smoothstep(0.48, 0.78, n1 * 0.6 + n2 * 0.4);
+      }
+
+      // Shallow water sun caustics network
+      float caustics(vec2 p, float time) {
+        vec2 c1 = p * 0.8 + vec2(sin(time * 0.8 + p.y * 0.5), cos(time * 0.7 + p.x * 0.5)) * 0.3;
+        vec2 c2 = p * 1.2 - vec2(cos(time * 0.6 - p.y * 0.4), sin(time * 0.9 - p.x * 0.4)) * 0.25;
+        float n = min(abs(oceanNoise(c1) - 0.5), abs(oceanNoise(c2) - 0.5));
+        return smoothstep(0.08, 0.01, n);
+      }
+
       void main() {
         vec3 viewDir = normalize(uCameraPosition - vWorldPosition);
         vec3 normal = normalize(vNormal);
@@ -97,28 +127,35 @@ export class Ocean {
         vec3 sunDir = normalize(uSunPosition - vWorldPosition);
         vec3 halfVector = normalize(sunDir + viewDir);
         float NdotH = max(0.0, dot(normal, halfVector));
-        float specular = pow(NdotH, 80.0) * 2.2;
+        float specular = pow(NdotH, 80.0) * 2.6;
 
         // Fresnel reflection factor
         float NdotV = max(0.0, dot(normal, viewDir));
         float fresnel = 0.04 + 0.96 * pow(1.0 - NdotV, 4.0);
 
-        // Depth gradient: shallow turquoise near shore/peaks, deep oceanic blue in troughs
+        // Depth gradient: shallow turquoise near shore/peaks, deep oceanic sapphire in troughs
         vec3 waterBase = mix(uDeepColor, uShallowColor, smoothstep(-0.6, 0.6, vWaveHeight));
 
-        // Wave crest dynamic foam
-        float foamFactor = smoothstep(0.42, 0.75, vWaveHeight);
-        vec3 finalColor = mix(waterBase, uFoamColor, foamFactor * 0.75);
+        // Shallow water caustics
+        float shallowFactor = smoothstep(0.2, -0.4, vWaveHeight);
+        float cLight = caustics(vWorldPosition.xz, uTime) * shallowFactor * 0.4;
+        waterBase += vec3(0.12, 0.28, 0.32) * cLight;
 
-        // Sun glitter highlight
+        // Wave crest dynamic foam with fractal noise web
+        float crestFactor = smoothstep(0.35, 0.75, vWaveHeight);
+        float foamNoise = foamPattern(vWorldPosition.xz, uTime);
+        float totalFoam = crestFactor * (0.4 + foamNoise * 0.6);
+        vec3 finalColor = mix(waterBase, uFoamColor, totalFoam * 0.88);
+
+        // Sun glitter specular highlight
         finalColor += uSunColor * specular;
 
         // Sky reflection tint via Fresnel
-        vec3 skyReflection = vec3(0.45, 0.72, 0.95);
-        finalColor = mix(finalColor, skyReflection, fresnel * 0.45);
+        vec3 skyReflection = vec3(0.42, 0.70, 0.96);
+        finalColor = mix(finalColor, skyReflection, fresnel * 0.48);
 
-        // Subtle alpha transparency based on viewing angle
-        float alpha = mix(0.82, 0.96, fresnel);
+        // Alpha transparency based on viewing angle
+        float alpha = mix(0.85, 0.98, fresnel);
 
         gl_FragColor = vec4(finalColor, alpha);
       }

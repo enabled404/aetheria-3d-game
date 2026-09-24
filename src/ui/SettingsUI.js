@@ -18,12 +18,15 @@ export class SettingsUI {
 
   createDOM() {
     // 1. Trigger button in HUD
-    const btn = document.createElement('button');
-    btn.id = 'hud-settings-btn';
-    btn.className = 'glass-panel';
-    btn.innerHTML = '⚙️ Settings';
-    btn.title = 'Open Game Settings (Esc / O)';
-    document.body.appendChild(btn);
+    let btn = document.getElementById('hud-settings-btn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'hud-settings-btn';
+      btn.className = 'glass-panel';
+      btn.innerHTML = '⚙️ Settings';
+      btn.title = 'Open Game Settings (Esc / O)';
+      document.body.appendChild(btn);
+    }
     this.triggerBtn = btn;
 
     // 2. Settings Modal Container
@@ -407,15 +410,26 @@ export class SettingsUI {
     if (particleSelect) particleSelect.value = s.particleDensity || 'high';
   }
 
-  toggle() {
+  switchTab(targetTab) {
+    const tabs = this.modal.querySelectorAll('.settings-tab');
+    tabs.forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.tab === targetTab);
+    });
+    this.modal.querySelectorAll('.settings-tab-content').forEach(tc => {
+      tc.classList.toggle('active', tc.id === `tab-${targetTab}`);
+    });
+  }
+
+  toggle(tabName = null) {
     if (this.isOpen) this.close();
-    else this.open();
+    else this.open(tabName);
     return this.isOpen;
   }
 
-  open() {
+  open(tabName = null) {
     this.isOpen = true;
     this.syncFromSettings();
+    if (tabName) this.switchTab(tabName);
     this.modal.style.display = 'flex';
     this.gameCursor?.openUI('settings');
     this.inputManager?.exitPointerLock();

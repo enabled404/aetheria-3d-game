@@ -34,6 +34,7 @@ export class CameraController {
 
     this.currentPos = new THREE.Vector3();
     this.targetPos = new THREE.Vector3();
+    this.currentFocus = new THREE.Vector3();
 
     // Listen for real-time setting updates
     settings.onChange((key, val) => {
@@ -157,15 +158,21 @@ export class CameraController {
         }
       }
 
-      this.currentPos.lerp(this.targetPos, Math.min(1.0, dt * 20.0));
+      this.currentPos.lerp(this.targetPos, Math.min(1.0, dt * 18.0));
       this.camera.position.copy(this.currentPos).add(new THREE.Vector3(shakeX, shakeY, shakeZ));
 
-      // Focus point: Look along aim direction ahead of player
-      const focusTarget = headPos.clone()
+      // Focus point: Smoothly look along aim direction ahead of player to eliminate micro-jitter
+      const rawFocus = headPos.clone()
         .add(shoulder.clone().multiplyScalar(0.3))
         .add(aimDir.clone().multiplyScalar(24.0));
 
-      this.camera.lookAt(focusTarget);
+      if (this.currentFocus.lengthSq() < 0.1) {
+        this.currentFocus.copy(rawFocus);
+      } else {
+        this.currentFocus.lerp(rawFocus, Math.min(1.0, dt * 24.0));
+      }
+
+      this.camera.lookAt(this.currentFocus);
     }
   }
 
@@ -198,6 +205,7 @@ export class CameraController {
       .add(shoulder.clone().multiplyScalar(0.3))
       .add(aimDir.clone().multiplyScalar(24.0));
 
+    this.currentFocus.copy(focusTarget);
     this.camera.lookAt(focusTarget);
   }
 

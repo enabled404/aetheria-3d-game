@@ -39,6 +39,22 @@ export class HUD {
     this.weatherIcon = document.getElementById('weather-icon');
     this.weatherLabel = document.getElementById('weather-label');
     this.weatherDetail = document.getElementById('weather-detail');
+
+    // Controls Guide
+    this.helpGuide = document.getElementById('help-guide');
+  }
+
+  toggleHelpGuide(forceState = null) {
+    if (!this.helpGuide) {
+      this.helpGuide = document.getElementById('help-guide');
+    }
+    if (!this.helpGuide) return false;
+    if (forceState !== null) {
+      this.helpGuide.classList.toggle('collapsed', !forceState);
+    } else {
+      this.helpGuide.classList.toggle('collapsed');
+    }
+    return !this.helpGuide.classList.contains('collapsed');
   }
 
   setWeatherStatus(status) {

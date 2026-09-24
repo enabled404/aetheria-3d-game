@@ -112,7 +112,7 @@
     #weather-pill {
       position: absolute;
       top: 14px;
-      right: 140px;
+      left: 155px;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -586,29 +586,56 @@
     }
     .craft-btn.disabled { background: #334155; color: #64748b; cursor: not-allowed; }
 
-    /* Settings Trigger Button */
-    #hud-settings-btn {
+    /* Top-Right HUD Action Controls */
+    #hud-top-actions {
       position: absolute;
       top: 14px;
       right: 20px;
+      display: flex;
+      gap: 8px;
+      z-index: 15;
+      pointer-events: auto;
+    }
+    .hud-action-btn {
+      background: rgba(10, 16, 28, 0.78);
+      border: 1px solid rgba(120, 190, 255, 0.28);
+      border-radius: 8px;
+      padding: 6px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+      color: #cbd5e1;
       font-size: 12px;
       font-weight: 600;
-      color: #00e5ff;
       cursor: pointer;
-      z-index: 15;
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
-      transition: all 0.2s ease;
+      transition: all 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);
+      user-select: none;
     }
-    #hud-settings-btn:hover {
-      background: rgba(0, 229, 255, 0.2);
-      border-color: #00e5ff;
+    .hud-action-btn:hover {
+      background: rgba(0, 229, 255, 0.18);
+      border-color: #00ffff;
+      color: #ffffff;
       transform: translateY(-1px);
     }
+    .hud-action-btn kbd {
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #7fd0ff;
+    }
+    #hud-pause-btn {
+      color: #00ffff;
+      border-color: rgba(0, 229, 255, 0.45);
+      font-weight: 700;
+    }
+    #hud-pause-btn:hover {
+      box-shadow: 0 0 16px rgba(0, 229, 255, 0.5);
+    }
 
-    /* Key Help Guide */
+    /* Key Help Guide (Collapsible) */
     #help-guide {
       position: absolute;
       top: 54px;
@@ -616,6 +643,15 @@
       font-size: 11px;
       line-height: 1.6;
       color: #94a3b8;
+      z-index: 14;
+      transform: translateX(0);
+      opacity: 1;
+      transition: transform 0.25s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.25s ease;
+    }
+    #help-guide.collapsed {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(30px);
     }
     #help-guide kbd {
       background: rgba(255, 255, 255, 0.15);
@@ -1192,8 +1228,15 @@
       </div>
     </div>
 
-    <!-- Controls Guide -->
-    <div id="help-guide" class="glass-panel">
+    <!-- Top-Right HUD Action Controls -->
+    <div id="hud-top-actions">
+      <button id="hud-pause-btn" class="hud-action-btn" title="Pause Game (Esc / P)"><span>⏸</span> Pause <kbd>Esc</kbd></button>
+      <button id="hud-controls-toggle" class="hud-action-btn" title="Toggle Controls Guide (H)"><span>⌨️</span> Guide <kbd>H</kbd></button>
+      <button id="hud-settings-btn" class="hud-action-btn" title="Settings & Keybinds (O)"><span>⚙️</span> Settings <kbd>O</kbd></button>
+    </div>
+
+    <!-- Controls Guide (Collapsible) -->
+    <div id="help-guide" class="glass-panel collapsed">
       <div><kbd>WASD</kbd> Move • <kbd>Shift</kbd> Sprint</div>
       <div><kbd>Space</kbd> Jump / <kbd>Hold in Air</kbd> Thruster Boost</div>
       <div><kbd>Ctrl</kbd> (in air) Aerial Ground Slam</div>
@@ -1205,7 +1248,7 @@
       <div><kbd>F5</kbd> Quick Save • <kbd>F9</kbd> Quick Load</div>
       <div><kbd>Tab</kbd> Crafting • <kbd>M</kbd> Full Island Map</div>
       <div><kbd>V</kbd> Toggle 1st / 3rd Person View</div>
-      <div><kbd>Esc</kbd> / <kbd>O</kbd> Settings & Pause Menu</div>
+      <div><kbd>Esc</kbd> / <kbd>P</kbd> Pause & Unstuck Menu</div>
     </div>
   </div>
 

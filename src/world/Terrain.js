@@ -182,10 +182,113 @@ export class Terrain {
 
     const mat = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.8,
-      metalness: 0.08,
+      roughness: 0.75,
+      metalness: 0.05,
       flatShading: false
     });
+
+    // Advanced Procedural Terrain Shader with Triplanar Detail & Analytical Normal Bump
+    mat.onBeforeCompile = (shader) => {
+      shader.vertexShader = `
+        varying vec3 vTerrainWorldPos;
+        varying vec3 vTerrainWorldNormal;
+      ` + shader.vertexShader;
+
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `
+        #include <begin_vertex>
+        vec4 tWorldPos = modelMatrix * vec4(position, 1.0);
+        vTerrainWorldPos = tWorldPos.xyz;
+        vTerrainWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+        `
+      );
+
+      shader.fragmentShader = `
+        varying vec3 vTerrainWorldPos;
+        varying vec3 vTerrainWorldNormal;
+
+        // Fast hash-based procedural noise for micro-surface variation
+        float hash21(vec2 p) {
+          p = fract(p * vec2(234.34, 435.345));
+          p += dot(p, p + 34.23);
+          return fract(p.x * p.y);
+        }
+
+        float terrainNoise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          float a = hash21(i);
+          float b = hash21(i + vec2(1.0, 0.0));
+          float c = hash21(i + vec2(0.0, 1.0));
+          float d = hash21(i + vec2(1.0, 1.0));
+          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+        }
+
+        float terrainFbm(vec2 p) {
+          float v = 0.0;
+          v += 0.5 * terrainNoise(p);
+          v += 0.25 * terrainNoise(p * 2.03);
+          v += 0.125 * terrainNoise(p * 4.01);
+          return v;
+        }
+      ` + shader.fragmentShader;
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `
+        #include <color_fragment>
+
+        vec3 wp = vTerrainWorldPos;
+        vec3 wn = normalize(vTerrainWorldNormal);
+        float slope = 1.0 - wn.y;
+
+        // 1. Multi-scale procedural detail textures
+        // High-frequency ground detail (pebbles, soil grains, grass blades)
+        float microDetail = terrainFbm(wp.xz * 1.8);
+        float macroDetail = terrainFbm(wp.xz * 0.15);
+
+        // Cliff rock strata & crags (triplanar projection along Y & Z)
+        float rockStrata = sin(wp.y * 1.8 + terrainNoise(wp.xz * 0.4) * 2.5) * 0.5 + 0.5;
+        float rockCrags = terrainFbm(wp.xy * 0.6) * 0.5 + terrainFbm(wp.zy * 0.6) * 0.5;
+
+        // 2. Synthesize biome surface colors
+        if (slope > 0.3) {
+          // Steep cliffs and rock faces
+          float cliffBlend = smoothstep(0.3, 0.65, slope);
+          vec3 rockBase = vec3(0.24, 0.23, 0.26);
+          vec3 rockHighlight = vec3(0.42, 0.40, 0.44);
+          vec3 rockColor = mix(rockBase, rockHighlight, rockStrata * 0.6 + rockCrags * 0.4);
+          diffuseColor.rgb = mix(diffuseColor.rgb, rockColor, cliffBlend);
+        } else if (wp.y < 2.2) {
+          // Shoreline & wet sand
+          float wetness = clamp(1.0 - (wp.y - 0.2) / 2.0, 0.0, 1.0);
+          vec3 sandGrain = vec3(0.72, 0.64, 0.48) * (0.88 + microDetail * 0.24);
+          diffuseColor.rgb = mix(diffuseColor.rgb, sandGrain, 0.65);
+          diffuseColor.rgb *= (1.0 - wetness * 0.22); // Darken wet sand
+        } else if (wp.y > 28.0) {
+          // Alpine snowcap with crystalline sparkles
+          float snowBlend = smoothstep(28.0, 36.0, wp.y);
+          float snowGlitter = pow(microDetail, 3.0) * 0.35;
+          vec3 pureSnow = vec3(0.92, 0.95, 0.98) + snowGlitter;
+          diffuseColor.rgb = mix(diffuseColor.rgb, pureSnow, snowBlend * (1.0 - slope));
+        } else {
+          // Lush meadow & forest floor: dual-tone grass variation
+          vec3 grassVariation = vec3(0.24 + microDetail * 0.12, 0.48 + microDetail * 0.18, 0.18);
+          diffuseColor.rgb = mix(diffuseColor.rgb, grassVariation, 0.45);
+          diffuseColor.rgb *= (0.85 + macroDetail * 0.3);
+        }
+
+        // 3. Procedural Normal Perturbation (Micro-Surface Bump)
+        float bumpScale = (slope > 0.3) ? 0.08 : 0.035;
+        vec3 perturbedNormal = wn;
+        perturbedNormal.x += (terrainNoise(wp.xz * 1.5 + vec2(0.1, 0.0)) - 0.5) * bumpScale;
+        perturbedNormal.z += (terrainNoise(wp.xz * 1.5 + vec2(0.0, 0.1)) - 0.5) * bumpScale;
+        perturbedNormal = normalize(perturbedNormal);
+        `
+      );
+    };
 
     this.mesh = new THREE.Mesh(geom, mat);
     this.mesh.receiveShadow = true;

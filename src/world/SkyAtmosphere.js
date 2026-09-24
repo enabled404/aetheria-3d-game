@@ -379,6 +379,11 @@ export class SkyAtmosphere {
       this.starMaterial.opacity = Math.min(0.95, nightFactor);
     }
 
+    // Dynamic single-caster shadow pass optimization
+    const shadowsEnabled = settings.get('shadows') !== false;
+    this.sunLight.castShadow = shadowsEnabled && (sunElevation > -0.12);
+    this.moonLight.castShadow = shadowsEnabled && (sunElevation <= -0.12);
+
     // Update Aurora Borealis
     if (this.auroraUniforms) {
       this.auroraUniforms.uTime.value += dt;

@@ -49,6 +49,8 @@ import { GrassSystem } from './world/GrassSystem.js';
 import { RogueDrone } from './entities/RogueDrone.js';
 import { FloatingSanctuary } from './world/FloatingSanctuary.js';
 import { CelestialLeviathan } from './entities/CelestialLeviathan.js';
+import { TitleScreen } from './ui/TitleScreen.js';
+import { PauseMenu } from './ui/PauseMenu.js';
 
 // 1. Initialize Core Engine & Systems
 const canvas = document.getElementById('game-canvas');
@@ -207,18 +209,167 @@ function restoreSavedGame() {
   }
 }
 
-// 9. Direct Gameplay Input & Audio Init
+// 9. Enter Title Screen & Pause Menu Systems
+let isPaused = true;
+let clock = new THREE.Clock();
+
+function togglePause() {
+  if (titleScreen.isOpen()) return;
+  if (settingsUI.isOpen) {
+    settingsUI.close();
+    return;
+  }
+  if (craftingUI.isOpen) {
+    craftingUI.close();
+    return;
+  }
+  if (topoMap.isOpen) {
+    topoMap.close();
+    return;
+  }
+  if (dialogueSystem.isOpen) {
+    dialogueSystem.closeDialogue();
+    return;
+  }
+
+  if (pauseMenu.isOpen()) {
+    pauseMenu.hide();
+    gameCursor.closeUI('pause_menu');
+    isPaused = false;
+    clock.getDelta(); // flush accumulated pause time
+    gameCursor.requestReLock();
+  } else {
+    isPaused = true;
+    inputManager.exitPointerLock();
+    gameCursor.openUI('pause_menu');
+    pauseMenu.show({
+      health: player.health,
+      maxHealth: player.maxHealth,
+      level: player.level,
+      xp: player.xp,
+      position: currentActivePlane ? currentActivePlane.group.position : player.position,
+      weather: weatherSystem.getWeatherStatus()
+    });
+  }
+}
+
+const titleScreen = new TitleScreen(
+  (data) => {
+    audioEngine.init();
+    titleScreen.hide();
+    gameCursor.closeUI('title_screen');
+    isPaused = false;
+    clock.getDelta(); // flush dt
+    if (data && data.mode === 'runway') {
+      player.position.set(-110, 4.22, 45);
+      currentActivePlane = planeRunway;
+      inputManager.isFlightMode = true;
+      currentActivePlane.mount(player);
+      hud.showToast('✈️ Scrambled Fighter Jet — Cleared for Immediate Takeoff Runway 36!');
+      audioEngine.playToastSound();
+    } else {
+      hud.showToast('⚔️ Welcome to Aetheria — Expedition Begun');
+      audioEngine.playToastSound();
+    }
+    gameCursor.requestReLock();
+  },
+  () => {
+    settingsUI.open();
+  },
+  () => {
+    settingsUI.open('keybinds');
+  }
+);
+// Mark title_screen in gameCursor so pointer lock isn't captured during title screen
+gameCursor.openUI('title_screen');
+
+const pauseMenu = new PauseMenu({
+  onResume: () => {
+    pauseMenu.hide();
+    gameCursor.closeUI('pause_menu');
+    isPaused = false;
+    clock.getDelta(); // flush delta time
+    gameCursor.requestReLock();
+  },
+  onRespawnRunway: () => {
+    if (currentActivePlane) {
+      currentActivePlane.dismount();
+      inputManager.isFlightMode = false;
+      currentActivePlane = null;
+    }
+    player.position.set(-110, 4.22, 45);
+    player.velocity.set(0, 0, 0);
+    cameraController.snapToTarget(player.position, (x, z) => effectiveTerrain.getHeightAt(x, z));
+    pauseMenu.hide();
+    gameCursor.closeUI('pause_menu');
+    isPaused = false;
+    clock.getDelta();
+    hud.showToast('✈️ Respawned at Airport Runway (Unstuck)');
+    audioEngine.playToastSound();
+    gameCursor.requestReLock();
+  },
+  onQuickSave: () => {
+    saveSystem.save({ player, bossTitan, buildGrid, deployables, sky });
+    audioEngine.playToastSound();
+    hud.showToast('💾 Quick Save Successful');
+  },
+  onOpenSettings: () => {
+    pauseMenu.hide();
+    gameCursor.closeUI('pause_menu');
+    settingsUI.open();
+  },
+  onReturnTitle: () => {
+    pauseMenu.hide();
+    gameCursor.closeUI('pause_menu');
+    titleScreen.show();
+    gameCursor.openUI('title_screen');
+    isPaused = true;
+    inputManager.exitPointerLock();
+  }
+});
+
+// Top Action Button Listeners
+document.getElementById('hud-pause-btn')?.addEventListener('click', () => {
+  togglePause();
+});
+document.getElementById('hud-controls-toggle')?.addEventListener('click', () => {
+  hud.toggleHelpGuide();
+});
+
+// Global Esc / P listener for rock-solid pause toggle in all UI states
+window.addEventListener('keydown', (e) => {
+  if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+  if (e.code === 'Escape' || e.code === 'KeyP') {
+    e.preventDefault();
+    togglePause();
+  }
+});
+
+// Direct Gameplay Input & Audio Init
 canvas.addEventListener('click', () => {
+  if (titleScreen.isOpen() || pauseMenu.isOpen()) return;
   audioEngine.init();
   if (!gameCursor.isAnyUIOpen()) {
     inputManager.requestPointerLock();
   }
 });
 
-let clock = new THREE.Clock();
-
 function animate() {
   requestAnimationFrame(animate);
+
+  if (isPaused) {
+    // When paused, render the gorgeous living background (ocean waves, atmospheric lighting, levitating sanctuary)
+    // with a gentle slow idle delta, but FREEZE all game simulation (player, enemies, boss, projectiles, physics, stamina/hunger)
+    const idleDt = 0.008;
+    ocean.update(idleDt, sky.sunMesh.position, cameraController.camera.position);
+    sky.update(idleDt * 0.05, player.position);
+    floatingSanctuary.update(idleDt);
+    celestialLeviathan.update(idleDt, currentActivePlane, hud);
+    renderer.render(idleDt);
+    inputManager.clearFrame();
+    return;
+  }
+
   const dt = Math.min(clock.getDelta(), 0.05);
 
   // 1. Mouse deltas for character camera (when on foot)
@@ -232,9 +383,14 @@ function animate() {
     cameraController.toggleMode();
   }
 
-  // Settings & Pause Toggle (Esc or KeyO)
-  if (inputManager.wasKeyJustPressed('KeyO') || inputManager.wasKeyJustPressed('Escape')) {
+  // Settings Toggle (KeyO)
+  if (inputManager.wasKeyJustPressed('KeyO')) {
     settingsUI.toggle();
+  }
+
+  // Controls Guide Toggle (KeyH)
+  if (inputManager.wasKeyJustPressed('KeyH')) {
+    hud.toggleHelpGuide();
   }
 
   // World Map Toggle
